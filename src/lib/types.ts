@@ -2,10 +2,9 @@ export interface CallDetail {
   contact_name: string;
   webinar_watched: boolean;
   decision_maker_present: boolean;
-  outcome: 'won' | 'lost' | 'follow_up';
-  win_notes: string;
-  loss_notes: string;
-  general_notes: string;
+  outcome: 'one' | 'lost' | 'follow_up';
+  pcced: boolean;
+  notes: string;
 }
 
 export interface ShiftEntry {
@@ -13,18 +12,18 @@ export interface ShiftEntry {
   user_id: string;
   user_name: string;
   created_at?: string;
+  shift_date: string;
 
-  // Top-level
+  // This shift revenue & enrollments
   revenue_collected: number;
-  total_calls_since_start: number;
-  total_revenue_since_start: number;
+  enrollments: number;
 
   // Calls in Schedule → branches
   calls_in_schedule: number;
 
   // Calls Occurred (sub of Calls in Schedule)
   calls_occurred: number;
-  won: number;
+  one_calls: number;
   lost: number;
   follow_ups: number;
 
@@ -33,16 +32,49 @@ export interface ShiftEntry {
   reschedules: number;
   cancellations: number;
 
-  // Per-call tracking
+  // Derived from per-call table
   decision_maker_calls: number;
   webinar_watched_calls: number;
+  pcced_calls: number;
 
   // Per-call detail table
   call_details: CallDetail[];
 
-  // Overall notes
+  // Overall shift notes
   win_notes: string;
   loss_notes: string;
+}
+
+export interface HistoricalCall {
+  id?: string;
+  user_id: string;
+  user_name: string;
+  call_date: string;
+  contact_name: string;
+  outcome: 'one' | 'lost' | 'follow_up';
+  revenue: number;
+  enrolled: boolean;
+  webinar_watched: boolean;
+  decision_maker_present: boolean;
+  pcced: boolean;
+  notes: string;
+}
+
+export interface CumulativeStats {
+  total_revenue: number;
+  total_calls_occurred: number;
+  total_one_calls: number;
+  total_enrollments: number;
+  avg_aov: number;
+  avg_close_rate: number;
+  total_pcced: number;
+  total_no_shows: number;
+  total_reschedules: number;
+  total_cancellations: number;
+  webinar_win_rate: number;
+  dm_win_rate: number;
+  non_webinar_win_rate: number;
+  non_dm_win_rate: number;
 }
 
 export interface Metrics {
@@ -52,11 +84,13 @@ export interface Metrics {
   non_occurred_rate: number;
   decision_maker_rate: number;
   webinar_rate: number;
+  pcc_rate: number;
+  one_call_rate: number;
 }
 
 export interface Insight {
   flag: string;
-  severity: 'warning' | 'critical';
+  severity: 'warning' | 'critical' | 'info';
 }
 
 export interface AIInsight {

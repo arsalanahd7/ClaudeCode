@@ -20,9 +20,10 @@ export default function PerformanceChart({ metrics }: PerformanceChartProps) {
   const data = [
     { name: "Close Rate", value: metrics.close_rate, threshold: 0.3 },
     { name: "Show Rate", value: metrics.show_rate, threshold: 0.7 },
-    { name: "Follow-up", value: metrics.follow_up_rate, threshold: 0.5 },
+    { name: "Follow-up", value: metrics.follow_up_rate, threshold: 0.5, inverse: true },
     { name: "DM Rate", value: metrics.decision_maker_rate, threshold: 0.9 },
     { name: "Webinar", value: metrics.webinar_rate, threshold: 0.8 },
+    { name: "PCC Rate", value: metrics.pcc_rate, threshold: 1, neutral: true },
   ];
 
   return (
@@ -50,16 +51,17 @@ export default function PerformanceChart({ metrics }: PerformanceChartProps) {
             }}
           />
           <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-            {data.map((entry, index) => (
-              <Cell
-                key={index}
-                fill={
-                  index === 2
-                    ? entry.value <= entry.threshold ? "#2d5a3d" : "#b8860b"
-                    : entry.value >= entry.threshold ? "#2d5a3d" : "#b33a3a"
-                }
-              />
-            ))}
+            {data.map((entry, index) => {
+              let fill = "#2d5a3d"; // green by default
+              if (entry.neutral) {
+                fill = "#6b6459"; // muted for PCC
+              } else if (entry.inverse) {
+                fill = entry.value <= entry.threshold ? "#2d5a3d" : "#b8860b";
+              } else {
+                fill = entry.value >= entry.threshold ? "#2d5a3d" : "#b33a3a";
+              }
+              return <Cell key={index} fill={fill} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
