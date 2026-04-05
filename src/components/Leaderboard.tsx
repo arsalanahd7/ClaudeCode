@@ -10,7 +10,7 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-8 text-center">
-        <p className="text-[var(--muted)]">No data yet. Submit shifts to see the leaderboard.</p>
+        <p className="text-[var(--muted)] italic">No data yet. Submit shifts to see the leaderboard.</p>
       </div>
     );
   }
@@ -20,14 +20,14 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-[var(--card-border)]">
-              <th className="text-left px-4 py-3 font-semibold text-[var(--muted)]">Rank</th>
-              <th className="text-left px-4 py-3 font-semibold text-[var(--muted)]">Name</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--muted)]">Revenue</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--muted)]">Close Rate</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--muted)]">Show Rate</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--muted)]">Score</th>
-              <th className="text-right px-4 py-3 font-semibold text-[var(--muted)]">Shifts</th>
+            <tr className="bg-[var(--primary-bg)] border-b-2 border-[var(--primary)]">
+              <th className="text-left px-4 py-3 font-bold text-[var(--primary)]">Rank</th>
+              <th className="text-left px-4 py-3 font-bold text-[var(--primary)]">Name</th>
+              <th className="text-right px-4 py-3 font-bold text-[var(--primary)]">Revenue</th>
+              <th className="text-right px-4 py-3 font-bold text-[var(--primary)]">Close Rate</th>
+              <th className="text-right px-4 py-3 font-bold text-[var(--primary)]">Show Rate</th>
+              <th className="text-right px-4 py-3 font-bold text-[var(--primary)]">Score</th>
+              <th className="text-right px-4 py-3 font-bold text-[var(--primary)]">Shifts</th>
             </tr>
           </thead>
           <tbody>
@@ -35,36 +35,36 @@ export default function Leaderboard({ entries }: LeaderboardProps) {
               <tr
                 key={entry.user_id}
                 className={`border-b border-[var(--card-border)] last:border-0 ${
-                  i < 3 ? "bg-blue-50/40" : ""
+                  i < 3 ? "bg-[var(--primary-bg)]/40" : ""
                 }`}
               >
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
                       i === 0
-                        ? "bg-yellow-100 text-yellow-700"
+                        ? "bg-[var(--primary)] text-white"
                         : i === 1
-                        ? "bg-gray-200 text-gray-600"
+                        ? "bg-[var(--primary-light)] text-white"
                         : i === 2
-                        ? "bg-orange-100 text-orange-600"
-                        : "bg-gray-100 text-gray-500"
+                        ? "bg-[var(--primary-bg)] text-[var(--primary)]"
+                        : "bg-gray-100 text-[var(--muted)]"
                     }`}
                   >
                     {i + 1}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-medium">{entry.user_name}</td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-4 py-3 font-semibold">{entry.user_name}</td>
+                <td className="px-4 py-3 text-right font-semibold">
                   ${entry.total_revenue.toLocaleString()}
                 </td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-4 py-3 text-right">
                   {(entry.avg_close_rate * 100).toFixed(1)}%
                 </td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-4 py-3 text-right">
                   {(entry.avg_show_rate * 100).toFixed(1)}%
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--primary)]/10 text-[var(--primary)]">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--primary-bg)] text-[var(--primary)]">
                     {(entry.score * 100).toFixed(0)}
                   </span>
                 </td>

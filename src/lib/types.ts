@@ -1,14 +1,12 @@
-export const WEAK_STAGE_OPTIONS = [
-  'rapport',
-  'agenda_control',
-  'pain',
-  'urgency',
-  'commitment',
-  'objection_handling',
-  'closing',
-] as const;
-
-export type WeakStage = (typeof WEAK_STAGE_OPTIONS)[number];
+export interface CallDetail {
+  contact_name: string;
+  webinar_watched: boolean;
+  decision_maker_present: boolean;
+  outcome: 'won' | 'lost' | 'follow_up';
+  win_notes: string;
+  loss_notes: string;
+  general_notes: string;
+}
 
 export interface ShiftEntry {
   id?: string;
@@ -16,28 +14,42 @@ export interface ShiftEntry {
   user_name: string;
   created_at?: string;
 
-  calls_scheduled: number;
-  calls_completed: number;
-  no_shows: number;
-  reschedules: number;
-  cancellations: number;
+  // Top-level
+  revenue_collected: number;
+  total_calls_since_start: number;
+  total_revenue_since_start: number;
+
+  // Calls in Schedule → branches
+  calls_in_schedule: number;
+
+  // Calls Occurred (sub of Calls in Schedule)
+  calls_occurred: number;
   won: number;
   lost: number;
   follow_ups: number;
+
+  // Non-Occurred (sub of Calls in Schedule)
+  no_shows: number;
+  reschedules: number;
+  cancellations: number;
+
+  // Per-call tracking
   decision_maker_calls: number;
   webinar_watched_calls: number;
 
-  weak_stages: WeakStage[];
+  // Per-call detail table
+  call_details: CallDetail[];
+
+  // Overall notes
   win_notes: string;
   loss_notes: string;
-
-  revenue?: number;
 }
 
 export interface Metrics {
   close_rate: number;
-  show_rate: number;
   follow_up_rate: number;
+  show_rate: number;
+  non_occurred_rate: number;
   decision_maker_rate: number;
   webinar_rate: number;
 }

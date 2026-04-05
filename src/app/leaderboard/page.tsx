@@ -12,10 +12,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("shift_entries")
-        .select("*");
-
+      const { data } = await supabase.from("shift_entries").select("*");
       if (data) {
         setEntries(data as ShiftEntry[]);
       }
@@ -29,14 +26,14 @@ export default function LeaderboardPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">Leaderboard</h1>
+        <h1 className="text-2xl font-bold text-[var(--primary)]">Leaderboard</h1>
         <p className="text-[var(--muted)] mt-1">
           Ranked by composite score: 50% revenue + 30% close rate + 20% show rate
         </p>
       </div>
 
       {loading ? (
-        <p className="text-[var(--muted)]">Loading leaderboard...</p>
+        <p className="text-[var(--muted)] italic">Loading leaderboard...</p>
       ) : (
         <LeaderboardComponent entries={leaderboard} />
       )}

@@ -1,27 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f5f2ed;
+  --foreground: #1a1a1a;
   --card: #ffffff;
-  --card-border: #e2e8f0;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --success: #10b981;
-  --muted: #64748b;
+  --card-border: #d4cfc7;
+  --primary: #2d5a3d;
+  --primary-light: #3a7550;
+  --primary-hover: #1e3f2b;
+  --primary-bg: #e8f0eb;
+  --danger: #b33a3a;
+  --danger-bg: #fdf2f2;
+  --warning: #b8860b;
+  --warning-bg: #fdf8eb;
+  --success: #2d5a3d;
+  --success-bg: #e8f0eb;
+  --muted: #6b6459;
+  --muted-light: #9a9389;
+  --input-border: #c5bfb3;
+  --input-bg: #fafaf8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Georgia", "Times New Roman", "Garamond", serif;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+input[type="number"] {
+  font-family: "Georgia", serif;
+}
+
+select {
+  font-family: "Georgia", serif;
+}
+
+textarea {
+  font-family: "Georgia", serif;
 }

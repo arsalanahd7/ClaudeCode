@@ -27,16 +27,16 @@ export default function PerformanceChart({ metrics }: PerformanceChartProps) {
 
   return (
     <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
-      <h3 className="font-semibold text-sm text-[var(--muted)] uppercase tracking-wide mb-4">
+      <h3 className="font-bold text-sm text-[var(--muted)] uppercase tracking-wide mb-4">
         Performance Overview
       </h3>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#d4cfc7" />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fontFamily: "Georgia, serif" }} stroke="#6b6459" />
           <YAxis
-            tick={{ fontSize: 12 }}
-            stroke="#94a3b8"
+            tick={{ fontSize: 12, fontFamily: "Georgia, serif" }}
+            stroke="#6b6459"
             tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
             domain={[0, 1]}
           />
@@ -44,15 +44,20 @@ export default function PerformanceChart({ metrics }: PerformanceChartProps) {
             formatter={(value) => `${(Number(value) * 100).toFixed(1)}%`}
             contentStyle={{
               borderRadius: "8px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #d4cfc7",
               fontSize: "13px",
+              fontFamily: "Georgia, serif",
             }}
           />
           <Bar dataKey="value" radius={[6, 6, 0, 0]}>
             {data.map((entry, index) => (
               <Cell
                 key={index}
-                fill={entry.value >= entry.threshold ? "#10b981" : "#ef4444"}
+                fill={
+                  index === 2
+                    ? entry.value <= entry.threshold ? "#2d5a3d" : "#b8860b"
+                    : entry.value >= entry.threshold ? "#2d5a3d" : "#b33a3a"
+                }
               />
             ))}
           </Bar>
