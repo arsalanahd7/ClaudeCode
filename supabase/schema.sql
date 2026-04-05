@@ -22,7 +22,7 @@ create table shift_entries (
   calls_occurred integer not null default 0,
 
   -- Occurred outcomes
-  one_calls integer not null default 0,
+  won integer not null default 0,
   lost integer not null default 0,
   follow_ups integer not null default 0,
 
@@ -55,7 +55,7 @@ create table historical_calls (
   user_name text not null,
   call_date date not null,
   contact_name text default '',
-  outcome text not null default 'one',
+  outcome text not null default 'won',
   revenue numeric default 0,
   enrolled boolean default false,
   webinar_watched boolean default false,

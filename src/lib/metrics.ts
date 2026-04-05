@@ -6,14 +6,14 @@ export function calculateMetrics(entry: ShiftEntry): Metrics {
   const nonOccurred = entry.no_shows + entry.reschedules + entry.cancellations;
 
   return {
-    close_rate: entry.one_calls / co,
+    close_rate: entry.won / co,
     follow_up_rate: entry.follow_ups / co,
     show_rate: co / cs,
     non_occurred_rate: nonOccurred / cs,
     decision_maker_rate: entry.decision_maker_calls / co,
     webinar_rate: entry.webinar_watched_calls / co,
     pcc_rate: entry.pcced_calls / co,
-    one_call_rate: entry.one_calls / co,
+    won_rate: entry.won / co,
   };
 }
 
@@ -24,7 +24,7 @@ export function calculateCumulativeStats(
   // Aggregate from shift entries
   let totalRevenue = 0;
   let totalCallsOccurred = 0;
-  let totalOneCalls = 0;
+  let totalWonCalls = 0;
   let totalEnrollments = 0;
   let totalPcced = 0;
   let totalNoShows = 0;
@@ -44,7 +44,7 @@ export function calculateCumulativeStats(
   for (const entry of entries) {
     totalRevenue += entry.revenue_collected || 0;
     totalCallsOccurred += entry.calls_occurred || 0;
-    totalOneCalls += entry.one_calls || 0;
+    totalWonCalls += entry.won || 0;
     totalEnrollments += entry.enrollments || 0;
     totalPcced += entry.pcced_calls || 0;
     totalNoShows += entry.no_shows || 0;
@@ -55,17 +55,17 @@ export function calculateCumulativeStats(
       for (const call of entry.call_details) {
         if (call.webinar_watched) {
           webinarTotal++;
-          if (call.outcome === 'one') webinarWins++;
+          if (call.outcome === 'won') webinarWins++;
         } else {
           nonWebinarTotal++;
-          if (call.outcome === 'one') nonWebinarWins++;
+          if (call.outcome === 'won') nonWebinarWins++;
         }
         if (call.decision_maker_present) {
           dmTotal++;
-          if (call.outcome === 'one') dmWins++;
+          if (call.outcome === 'won') dmWins++;
         } else {
           nonDmTotal++;
-          if (call.outcome === 'one') nonDmWins++;
+          if (call.outcome === 'won') nonDmWins++;
         }
       }
     }
@@ -75,33 +75,33 @@ export function calculateCumulativeStats(
   for (const call of historicalCalls) {
     totalRevenue += call.revenue || 0;
     totalCallsOccurred++;
-    if (call.outcome === 'one') totalOneCalls++;
+    if (call.outcome === 'won') totalWonCalls++;
     if (call.enrolled) totalEnrollments++;
     if (call.pcced) totalPcced++;
 
     if (call.webinar_watched) {
       webinarTotal++;
-      if (call.outcome === 'one') webinarWins++;
+      if (call.outcome === 'won') webinarWins++;
     } else {
       nonWebinarTotal++;
-      if (call.outcome === 'one') nonWebinarWins++;
+      if (call.outcome === 'won') nonWebinarWins++;
     }
     if (call.decision_maker_present) {
       dmTotal++;
-      if (call.outcome === 'one') dmWins++;
+      if (call.outcome === 'won') dmWins++;
     } else {
       nonDmTotal++;
-      if (call.outcome === 'one') nonDmWins++;
+      if (call.outcome === 'won') nonDmWins++;
     }
   }
 
   return {
     total_revenue: totalRevenue,
     total_calls_occurred: totalCallsOccurred,
-    total_one_calls: totalOneCalls,
+    total_won_calls: totalWonCalls,
     total_enrollments: totalEnrollments,
     avg_aov: totalEnrollments > 0 ? totalRevenue / totalEnrollments : 0,
-    avg_close_rate: totalCallsOccurred > 0 ? totalOneCalls / totalCallsOccurred : 0,
+    avg_close_rate: totalCallsOccurred > 0 ? totalWonCalls / totalCallsOccurred : 0,
     total_pcced: totalPcced,
     total_no_shows: totalNoShows,
     total_reschedules: totalReschedules,
@@ -317,11 +317,11 @@ export function calculateLeaderboard(entries: ShiftEntry[]): LeaderboardEntry[] 
 
   for (const [user_id, userEntries] of userMap) {
     const totalRevenue = userEntries.reduce((sum, e) => sum + (e.revenue_collected || 0), 0);
-    const totalOne = userEntries.reduce((sum, e) => sum + e.one_calls, 0);
+    const totalWon = userEntries.reduce((sum, e) => sum + e.won, 0);
     const totalOccurred = userEntries.reduce((sum, e) => sum + e.calls_occurred, 0);
     const totalScheduled = userEntries.reduce((sum, e) => sum + e.calls_in_schedule, 0);
 
-    const avgCloseRate = totalOccurred > 0 ? totalOne / totalOccurred : 0;
+    const avgCloseRate = totalOccurred > 0 ? totalWon / totalOccurred : 0;
     const avgShowRate = totalScheduled > 0 ? totalOccurred / totalScheduled : 0;
 
     const maxRevenue = Math.max(...entries.map(e => e.revenue_collected || 0), 1);

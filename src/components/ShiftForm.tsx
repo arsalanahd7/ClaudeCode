@@ -8,7 +8,7 @@ const EMPTY_CALL: CallDetail = {
   contact_name: "",
   webinar_watched: false,
   decision_maker_present: false,
-  outcome: "one",
+  outcome: "won",
   pcced: false,
   notes: "",
 };
@@ -28,7 +28,7 @@ export default function ShiftForm() {
   const [cancellations, setCancellations] = useState("");
 
   // Occurred outcomes
-  const [oneCalls, setOneCalls] = useState("");
+  const [wonCalls, setWonCalls] = useState("");
   const [lost, setLost] = useState("");
   const [followUps, setFollowUps] = useState("");
 
@@ -51,7 +51,7 @@ export default function ShiftForm() {
   const nonOccurred = noShowNum + rescheduleNum + cancelNum;
   const callsOccurred = Math.max(0, scheduleNum - nonOccurred);
 
-  const oneNum = parseInt(oneCalls) || 0;
+  const wonNum = parseInt(wonCalls) || 0;
   const lostNum = parseInt(lost) || 0;
   const followUpNum = parseInt(followUps) || 0;
 
@@ -110,7 +110,7 @@ export default function ShiftForm() {
       enrollments: parseInt(enrollments) || 0,
       calls_in_schedule: scheduleNum,
       calls_occurred: callsOccurred,
-      one_calls: oneNum,
+      won: wonNum,
       lost: lostNum,
       follow_ups: followUpNum,
       no_shows: noShowNum,
@@ -138,7 +138,7 @@ export default function ShiftForm() {
       setNoShows("");
       setReschedules("");
       setCancellations("");
-      setOneCalls("");
+      setWonCalls("");
       setLost("");
       setFollowUps("");
       setCallDetails([]);
@@ -284,11 +284,11 @@ export default function ShiftForm() {
           </h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm mb-1.5">One</label>
+              <label className="block text-sm mb-1.5">Won</label>
               <input
                 type="number"
-                value={oneCalls}
-                onChange={(e) => setOneCalls(e.target.value)}
+                value={wonCalls}
+                onChange={(e) => setWonCalls(e.target.value)}
                 className="w-full px-3 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="0"
                 min={0}
@@ -376,7 +376,7 @@ export default function ShiftForm() {
                         onChange={(e) => updateCallDetail(i, "outcome", e.target.value)}
                         className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                       >
-                        <option value="one">One</option>
+                        <option value="won">Won</option>
                         <option value="lost">Lost</option>
                         <option value="follow_up">Follow-Up</option>
                       </select>

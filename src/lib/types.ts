@@ -2,7 +2,7 @@ export interface CallDetail {
   contact_name: string;
   webinar_watched: boolean;
   decision_maker_present: boolean;
-  outcome: 'one' | 'lost' | 'follow_up';
+  outcome: 'won' | 'lost' | 'follow_up';
   pcced: boolean;
   notes: string;
 }
@@ -23,7 +23,7 @@ export interface ShiftEntry {
 
   // Calls Occurred (sub of Calls in Schedule)
   calls_occurred: number;
-  one_calls: number;
+  won: number;
   lost: number;
   follow_ups: number;
 
@@ -51,7 +51,7 @@ export interface HistoricalCall {
   user_name: string;
   call_date: string;
   contact_name: string;
-  outcome: 'one' | 'lost' | 'follow_up';
+  outcome: 'won' | 'lost' | 'follow_up';
   revenue: number;
   enrolled: boolean;
   webinar_watched: boolean;
@@ -63,7 +63,7 @@ export interface HistoricalCall {
 export interface CumulativeStats {
   total_revenue: number;
   total_calls_occurred: number;
-  total_one_calls: number;
+  total_won_calls: number;
   total_enrollments: number;
   avg_aov: number;
   avg_close_rate: number;
@@ -85,7 +85,7 @@ export interface Metrics {
   decision_maker_rate: number;
   webinar_rate: number;
   pcc_rate: number;
-  one_call_rate: number;
+  won_rate: number;
 }
 
 export interface Insight {

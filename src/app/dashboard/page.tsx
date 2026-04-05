@@ -128,8 +128,8 @@ export default function DashboardPage() {
             <p className="text-xl font-bold text-[var(--primary)]">{cumulative.total_calls_occurred}</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--muted)] uppercase">One Calls</p>
-            <p className="text-xl font-bold text-[var(--primary)]">{cumulative.total_one_calls}</p>
+            <p className="text-xs text-[var(--muted)] uppercase">Won Calls</p>
+            <p className="text-xl font-bold text-[var(--primary)]">{cumulative.total_won_calls}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--muted)] uppercase">Enrollments</p>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
           label="Close Rate"
           value={`${(metrics.close_rate * 100).toFixed(1)}%`}
           color={metrics.close_rate >= 0.3 ? "green" : "red"}
-          subtitle={`${latestEntry.one_calls} one / ${latestEntry.calls_occurred}`}
+          subtitle={`${latestEntry.won} won / ${latestEntry.calls_occurred}`}
         />
         <MetricCard
           label="Show Rate"
@@ -239,13 +239,13 @@ export default function DashboardPage() {
                     <td className="py-2 px-3 text-center">{call.decision_maker_present ? "Yes" : "No"}</td>
                     <td className="py-2 px-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
-                        call.outcome === "one"
+                        call.outcome === "won"
                           ? "bg-[var(--success-bg)] text-[var(--success)]"
                           : call.outcome === "lost"
                           ? "bg-[var(--danger-bg)] text-[var(--danger)]"
                           : "bg-[var(--warning-bg)] text-[var(--warning)]"
                       }`}>
-                        {call.outcome === "follow_up" ? "Follow-Up" : call.outcome === "one" ? "One" : "Lost"}
+                        {call.outcome === "follow_up" ? "Follow-Up" : call.outcome === "won" ? "Won" : "Lost"}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-center">{call.pcced ? "Yes" : "No"}</td>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Revenue</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Scheduled</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Occurred</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">One</th>
+                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Won</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Lost</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Follow-Up</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Enrollments</th>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                     <td className="py-2 px-3 text-right font-semibold">${(entry.revenue_collected || 0).toLocaleString()}</td>
                     <td className="py-2 px-3 text-right">{entry.calls_in_schedule}</td>
                     <td className="py-2 px-3 text-right">{entry.calls_occurred}</td>
-                    <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{entry.one_calls}</td>
+                    <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{entry.won}</td>
                     <td className="py-2 px-3 text-right text-[var(--danger)]">{entry.lost}</td>
                     <td className="py-2 px-3 text-right text-[var(--warning)]">{entry.follow_ups}</td>
                     <td className="py-2 px-3 text-right">{entry.enrollments || 0}</td>

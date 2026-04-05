@@ -7,7 +7,7 @@ export default function HistoricalCallForm() {
   const [userName, setUserName] = useState("");
   const [callDate, setCallDate] = useState("");
   const [contactName, setContactName] = useState("");
-  const [outcome, setOutcome] = useState<"one" | "lost" | "follow_up">("one");
+  const [outcome, setOutcome] = useState<"won" | "lost" | "follow_up">("won");
   const [revenue, setRevenue] = useState("");
   const [enrolled, setEnrolled] = useState(false);
   const [webinarWatched, setWebinarWatched] = useState(false);
@@ -61,7 +61,7 @@ export default function HistoricalCallForm() {
     } else {
       setSuccess(true);
       setContactName("");
-      setOutcome("one");
+      setOutcome("won");
       setRevenue("");
       setEnrolled(false);
       setWebinarWatched(false);
@@ -117,10 +117,10 @@ export default function HistoricalCallForm() {
             <label className="block text-sm font-semibold mb-1.5">Outcome</label>
             <select
               value={outcome}
-              onChange={(e) => setOutcome(e.target.value as "one" | "lost" | "follow_up")}
+              onChange={(e) => setOutcome(e.target.value as "won" | "lost" | "follow_up")}
               className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
             >
-              <option value="one">One</option>
+              <option value="won">Won</option>
               <option value="lost">Lost</option>
               <option value="follow_up">Follow-Up</option>
             </select>
