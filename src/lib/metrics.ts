@@ -130,27 +130,8 @@ export function filterEntriesByDate(
     });
   }
 
-  let cutoff: Date;
-
-  switch (filter) {
-    case 'week':
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case '3months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      break;
-    case '6months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-      break;
-    case 'year':
-      cutoff = new Date(now.getFullYear(), 0, 1);
-      break;
-    default:
-      return entries;
-  }
+  const cutoff = getDateCutoff(now, filter);
+  if (!cutoff) return entries;
 
   return entries.filter((e) => {
     const entryDate = new Date(e.shift_date || e.created_at || '');
@@ -175,29 +156,30 @@ export function filterHistoricalByDate(
     });
   }
 
-  let cutoff: Date;
+  const cutoff = getDateCutoff(now, filter);
+  if (!cutoff) return calls;
+
+  return calls.filter((c) => new Date(c.call_date) >= cutoff);
+}
+
+function getDateCutoff(now: Date, filter: string): Date | null {
+  // Handle "Nmonths" pattern (2months, 3months, ..., 11months)
+  const monthMatch = filter.match(/^(\d+)months$/);
+  if (monthMatch) {
+    const n = parseInt(monthMatch[1]);
+    return new Date(now.getFullYear(), now.getMonth() - n, now.getDate());
+  }
 
   switch (filter) {
     case 'week':
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case '3months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      break;
-    case '6months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-      break;
+      return new Date(now.getFullYear(), now.getMonth(), 1);
     case 'year':
-      cutoff = new Date(now.getFullYear(), 0, 1);
-      break;
+      return new Date(now.getFullYear(), now.getMonth() - 12, now.getDate());
     default:
-      return calls;
+      return null;
   }
-
-  return calls.filter((c) => new Date(c.call_date) >= cutoff);
 }
 
 export function generateInsights(metrics: Metrics, cumulative: CumulativeStats): Insight[] {

@@ -24,12 +24,20 @@ const TIME_FILTERS = [
   { value: "latest", label: "Latest Shift" },
   { value: "week", label: "This Week" },
   { value: "month", label: "This Month" },
+  { value: "2months", label: "Last 2 Months" },
   { value: "3months", label: "Last 3 Months" },
+  { value: "4months", label: "Last 4 Months" },
+  { value: "5months", label: "Last 5 Months" },
   { value: "6months", label: "Last 6 Months" },
-  { value: "year", label: "This Year" },
-  { value: "all", label: "Cumulative (All Time)" },
+  { value: "7months", label: "Last 7 Months" },
+  { value: "8months", label: "Last 8 Months" },
+  { value: "9months", label: "Last 9 Months" },
+  { value: "10months", label: "Last 10 Months" },
+  { value: "11months", label: "Last 11 Months" },
+  { value: "year", label: "Last 12 Months" },
   // Individual months
   ...MONTHLY_DATA.map((m) => ({ value: m.month, label: m.label })).reverse(),
+  { value: "all", label: "Cumulative (All Time)" },
 ];
 
 interface AggData {
@@ -220,7 +228,7 @@ export default function DashboardPage() {
     lost_pcc_rate: agg.lostPCC / tl,
     decision_maker_rate: (agg.wonDM + agg.lostDM) / co,
     webinar_rate: (agg.wonWebinar + agg.lostWebinar) / co,
-    pcc_rate: (agg.wonPCC + agg.lostPCC) / co,
+    pcc_rate: agg.totalScheduled > 0 ? (agg.wonPCC + agg.lostPCC) / cs : 0,
     won_rate: agg.totalWon / co,
   };
 
@@ -307,10 +315,6 @@ export default function DashboardPage() {
               <span className="text-[var(--muted)]">Webinar Rate</span>
               <span className="font-semibold text-[var(--foreground)]">{(displayMetrics.won_webinar_rate * 100).toFixed(0)}%</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[var(--muted)]">PCC Rate</span>
-              <span className="font-semibold text-[var(--foreground)]">{(displayMetrics.won_pcc_rate * 100).toFixed(0)}%</span>
-            </div>
           </div>
         </div>
 
@@ -326,12 +330,24 @@ export default function DashboardPage() {
               <span className="text-[var(--muted)]">Webinar Rate</span>
               <span className="font-semibold text-[var(--foreground)]">{(displayMetrics.lost_webinar_rate * 100).toFixed(0)}%</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[var(--muted)]">PCC Rate</span>
-              <span className="font-semibold text-[var(--foreground)]">{(displayMetrics.lost_pcc_rate * 100).toFixed(0)}%</span>
-            </div>
           </div>
         </div>
+      </div>
+
+      {/* Row 2b: PCCd Calls */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <MetricCard
+          label="PCCd Calls"
+          value={agg.wonPCC + agg.lostPCC}
+          color="default"
+          subtitle={`${agg.wonPCC} won · ${agg.lostPCC} lost`}
+        />
+        <MetricCard
+          label="PCC Rate"
+          value={agg.totalScheduled > 0 ? `${(displayMetrics.pcc_rate * 100).toFixed(1)}%` : "—"}
+          color={displayMetrics.pcc_rate >= 0.5 ? "green" : "amber"}
+          subtitle={`${agg.wonPCC + agg.lostPCC} PCCd / ${agg.totalScheduled} scheduled`}
+        />
       </div>
 
       {/* Row 3: Close Rate | Show Rate */}

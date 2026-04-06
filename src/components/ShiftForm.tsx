@@ -407,7 +407,7 @@ export default function ShiftForm() {
           <div className="mt-3 flex gap-4 text-sm text-[var(--muted)]">
             <span>DM: <strong className="text-[var(--primary)]">{dmCalls}/{callsOccurred}</strong></span>
             <span>Webinar: <strong className="text-[var(--primary)]">{webinarCalls}/{callsOccurred}</strong></span>
-            <span>PCCed: <strong className="text-[var(--primary)]">{pccedCalls}/{callsOccurred}</strong></span>
+            <span>PCCd: <strong className="text-[var(--primary)]">{pccedCalls}/{scheduleNum}</strong> ({scheduleNum > 0 ? ((pccedCalls / scheduleNum) * 100).toFixed(0) : 0}%)</span>
           </div>
         </div>
       )}

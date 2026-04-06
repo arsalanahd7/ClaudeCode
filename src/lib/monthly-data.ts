@@ -33,9 +33,25 @@ export const MONTHLY_DATA: MonthlyData[] = [
 export function filterMonthlyData(data: MonthlyData[], filter: string): MonthlyData[] {
   if (filter === "all") return data;
 
-  const now = new Date(2026, 3, 6); // April 6, 2026 (today's date)
-  let cutoff: Date;
+  const now = new Date();
 
+  // Specific month filter like "2025-08"
+  if (/^\d{4}-\d{2}$/.test(filter)) {
+    return data.filter((d) => d.month === filter);
+  }
+
+  // Handle "Nmonths" pattern (2months, 3months, ..., 11months)
+  const monthMatch = filter.match(/^(\d+)months$/);
+  if (monthMatch) {
+    const n = parseInt(monthMatch[1]);
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - n, 1);
+    return data.filter((d) => {
+      const [year, month] = d.month.split("-").map(Number);
+      return new Date(year, month - 1, 1) >= cutoff;
+    });
+  }
+
+  let cutoff: Date;
   switch (filter) {
     case "week":
       cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -43,28 +59,16 @@ export function filterMonthlyData(data: MonthlyData[], filter: string): MonthlyD
     case "month":
       cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
       break;
-    case "3months":
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      break;
-    case "6months":
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-      break;
     case "year":
-      cutoff = new Date(now.getFullYear(), 0, 1);
+      cutoff = new Date(now.getFullYear(), now.getMonth() - 12, 1);
       break;
-    default: {
-      // Specific month filter like "2025-08"
-      if (/^\d{4}-\d{2}$/.test(filter)) {
-        return data.filter((d) => d.month === filter);
-      }
+    default:
       return data;
-    }
   }
 
   return data.filter((d) => {
     const [year, month] = d.month.split("-").map(Number);
-    const monthDate = new Date(year, month - 1, 1);
-    return monthDate >= cutoff;
+    return new Date(year, month - 1, 1) >= cutoff;
   });
 }
 
