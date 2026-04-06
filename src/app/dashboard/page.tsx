@@ -3,20 +3,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ShiftEntry, HistoricalCall, CumulativeStats } from "@/lib/types";
-import { ImportedDeal, calculateImportStats, filterDealsByDate } from "@/lib/csv-import";
 import {
-  calculateMetrics,
   calculateCumulativeStats,
   filterEntriesByDate,
   filterHistoricalByDate,
   generateInsights,
   generateAIInsight,
 } from "@/lib/metrics";
+import {
+  MONTHLY_DATA,
+  filterMonthlyData,
+  aggregateMonthlyData,
+} from "@/lib/monthly-data";
 import Link from "next/link";
 import MetricCard from "@/components/MetricCard";
 import PerformanceChart from "@/components/PerformanceChart";
 import InsightPanel from "@/components/InsightPanel";
-import AIInsightPanel from "@/components/AIInsightPanel";
 
 const TIME_FILTERS = [
   { value: "latest", label: "Latest Shift" },
@@ -26,6 +28,8 @@ const TIME_FILTERS = [
   { value: "6months", label: "Last 6 Months" },
   { value: "year", label: "This Year" },
   { value: "all", label: "Cumulative (All Time)" },
+  // Individual months
+  ...MONTHLY_DATA.map((m) => ({ value: m.month, label: m.label })).reverse(),
 ];
 
 interface AggData {
@@ -35,9 +39,7 @@ interface AggData {
   totalWon: number;
   totalLost: number;
   totalFollowUps: number;
-  totalNoShows: number;
-  totalReschedules: number;
-  totalCancellations: number;
+  didntOccur: number;
   // Won-specific rates
   wonDM: number;
   wonWebinar: number;
@@ -56,14 +58,11 @@ function aggregateEntries(entries: ShiftEntry[]): AggData {
     totalWon: entries.reduce((s, e) => s + e.won, 0),
     totalLost: entries.reduce((s, e) => s + e.lost, 0),
     totalFollowUps: entries.reduce((s, e) => s + e.follow_ups, 0),
-    totalNoShows: entries.reduce((s, e) => s + e.no_shows, 0),
-    totalReschedules: entries.reduce((s, e) => s + e.reschedules, 0),
-    totalCancellations: entries.reduce((s, e) => s + e.cancellations, 0),
+    didntOccur: entries.reduce((s, e) => s + e.no_shows + e.reschedules + e.cancellations, 0),
     wonDM: 0, wonWebinar: 0, wonPCC: 0,
     lostDM: 0, lostWebinar: 0, lostPCC: 0,
   };
 
-  // Derive won/lost-specific DM/webinar/PCC from call_details
   for (const entry of entries) {
     if (!entry.call_details) continue;
     for (const call of entry.call_details) {
@@ -85,18 +84,17 @@ function aggregateEntries(entries: ShiftEntry[]): AggData {
 export default function DashboardPage() {
   const [entries, setEntries] = useState<ShiftEntry[]>([]);
   const [historicalCalls, setHistoricalCalls] = useState<HistoricalCall[]>([]);
-  const [importedDeals, setImportedDeals] = useState<ImportedDeal[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [timeFilter, setTimeFilter] = useState("latest");
   const [loading, setLoading] = useState(true);
   const [showShiftHistory, setShowShiftHistory] = useState(false);
+  const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const [shiftRes, histRes, importRes] = await Promise.all([
+      const [shiftRes, histRes] = await Promise.all([
         supabase.from("shift_entries").select("*").order("created_at", { ascending: false }),
         supabase.from("historical_calls").select("*").order("call_date", { ascending: false }),
-        supabase.from("imported_deals").select("*").order("close_date", { ascending: false }),
       ]);
 
       if (shiftRes.data) {
@@ -106,7 +104,6 @@ export default function DashboardPage() {
         }
       }
       if (histRes.data) setHistoricalCalls(histRes.data as HistoricalCall[]);
-      if (importRes.data) setImportedDeals(importRes.data as ImportedDeal[]);
       setLoading(false);
     }
     load();
@@ -115,7 +112,6 @@ export default function DashboardPage() {
   const users = Array.from(new Map(entries.map((e) => [e.user_id, e.user_name])));
   const userEntries = entries.filter((e) => e.user_id === selectedUser);
   const userHistorical = historicalCalls.filter((c) => c.user_id === selectedUser);
-  const userImported = importedDeals.filter((d) => d.user_id === selectedUser);
 
   // Filter entries based on time
   const isLatest = timeFilter === "latest";
@@ -124,9 +120,12 @@ export default function DashboardPage() {
     ? userEntries.slice(0, 1)
     : filterEntriesByDate(userEntries, dateFilter);
   const filteredHistorical = filterHistoricalByDate(userHistorical, dateFilter);
-  const filteredImported = filterDealsByDate(userImported, dateFilter);
 
   const latestEntry = userEntries[0];
+
+  // Monthly data filtered by time
+  const filteredMonthly = isLatest ? [] : filterMonthlyData(MONTHLY_DATA, dateFilter);
+  const monthlyAgg = aggregateMonthlyData(filteredMonthly);
 
   if (loading) {
     return (
@@ -145,43 +144,27 @@ export default function DashboardPage() {
     );
   }
 
-  // Aggregate stats across all filtered entries
+  // Aggregate shift entries
   const agg = aggregateEntries(filteredEntries);
 
-  // Only add imported deals and historical calls for non-latest filters
-  const importStats = calculateImportStats(filteredImported);
-  const hasImportedData = filteredImported.length > 0;
-  if (!isLatest && hasImportedData) {
-    // Use actual filtered deal counts (won/lost come from real close_date filtering)
-    const csvWon = importStats.total_won;
-    const csvLost = importStats.total_lost;
-    const csvOccurred = csvWon + csvLost;
-    // Assume 70% show rate to infer scheduled
-    const csvScheduled = csvOccurred > 0 ? Math.round(csvOccurred / 0.70) : 0;
-    const csvNoShows = csvScheduled - csvOccurred;
-    const csvCancels = Math.round(csvNoShows * 0.70);
-    const csvReschedules = csvNoShows - csvCancels;
-
-    agg.totalRevenue += importStats.total_revenue;
-    agg.totalScheduled += csvScheduled;
-    agg.totalOccurred += csvOccurred;
-    agg.totalWon += csvWon;
-    agg.totalLost += csvLost;
-    agg.totalNoShows += csvNoShows;
-    agg.totalCancellations += csvCancels;
-    agg.totalReschedules += csvReschedules;
-
-    // CSV won calls: 90% DM, 90% webinar, 80% PCC
-    agg.wonDM += Math.round(csvWon * 0.90);
-    agg.wonWebinar += Math.round(csvWon * 0.90);
-    agg.wonPCC += Math.round(csvWon * 0.80);
-    // CSV lost calls: 80% DM, 80% webinar, 65% PCC
-    agg.lostDM += Math.round(csvLost * 0.80);
-    agg.lostWebinar += Math.round(csvLost * 0.80);
-    agg.lostPCC += Math.round(csvLost * 0.65);
-  }
-
+  // Add monthly data for non-latest filters
   if (!isLatest) {
+    agg.totalRevenue += monthlyAgg.totalRevenue;
+    agg.totalScheduled += monthlyAgg.totalScheduled;
+    agg.totalOccurred += monthlyAgg.totalOccurred;
+    agg.totalWon += monthlyAgg.totalEnrollments;
+    agg.totalLost += monthlyAgg.totalLost;
+    agg.didntOccur += monthlyAgg.didntOccur;
+
+    // Monthly won calls: 90% DM, 90% webinar, 80% PCC
+    agg.wonDM += Math.round(monthlyAgg.totalEnrollments * 0.90);
+    agg.wonWebinar += Math.round(monthlyAgg.totalEnrollments * 0.90);
+    agg.wonPCC += Math.round(monthlyAgg.totalEnrollments * 0.80);
+    // Monthly lost calls: 80% DM, 80% webinar, 65% PCC
+    agg.lostDM += Math.round(monthlyAgg.totalLost * 0.80);
+    agg.lostWebinar += Math.round(monthlyAgg.totalLost * 0.80);
+    agg.lostPCC += Math.round(monthlyAgg.totalLost * 0.65);
+
     // Add historical call stats
     for (const call of filteredHistorical) {
       agg.totalOccurred++;
@@ -205,10 +188,9 @@ export default function DashboardPage() {
   // Enrollments always = won calls
   const totalEnrollments = agg.totalWon;
 
-  // Calculate rates from aggregated data
+  // Calculate rates
   const co = agg.totalOccurred || 1;
   const cs = agg.totalScheduled || agg.totalOccurred || 1;
-  const nonOccurred = agg.totalNoShows + agg.totalReschedules + agg.totalCancellations;
   const tw = agg.totalWon || 1;
   const tl = agg.totalLost || 1;
 
@@ -216,42 +198,37 @@ export default function DashboardPage() {
     close_rate: agg.totalWon / co,
     follow_up_rate: agg.totalFollowUps / co,
     show_rate: agg.totalScheduled > 0 ? agg.totalOccurred / cs : 1,
-    non_occurred_rate: agg.totalScheduled > 0 ? nonOccurred / cs : 0,
-    // Won-specific rates
+    non_occurred_rate: agg.totalScheduled > 0 ? agg.didntOccur / cs : 0,
     won_dm_rate: agg.wonDM / tw,
     won_webinar_rate: agg.wonWebinar / tw,
     won_pcc_rate: agg.wonPCC / tw,
-    // Lost-specific rates
     lost_dm_rate: agg.lostDM / tl,
     lost_webinar_rate: agg.lostWebinar / tl,
     lost_pcc_rate: agg.lostPCC / tl,
-    // Overall
     decision_maker_rate: (agg.wonDM + agg.lostDM) / co,
     webinar_rate: (agg.wonWebinar + agg.lostWebinar) / co,
     pcc_rate: (agg.wonPCC + agg.lostPCC) / co,
     won_rate: agg.totalWon / co,
   };
 
-  // AOV = revenue / won calls (enrollments = won calls)
+  // AOV = revenue / won calls
   const avgAov = agg.totalWon > 0 ? agg.totalRevenue / agg.totalWon : 0;
 
-  // For insights use cumulative stats from shift data
+  // For insights
   const cumulative: CumulativeStats = calculateCumulativeStats(
     filteredEntries,
     isLatest ? [] : filteredHistorical
   );
   if (!isLatest) {
-    cumulative.total_revenue += importStats.total_revenue;
-    cumulative.total_calls_occurred += importStats.total_deals;
-    cumulative.total_won_calls += importStats.total_won;
+    cumulative.total_revenue += monthlyAgg.totalRevenue;
+    cumulative.total_calls_occurred += monthlyAgg.totalOccurred;
+    cumulative.total_won_calls += monthlyAgg.totalEnrollments;
     if (cumulative.total_calls_occurred > 0) {
       cumulative.avg_close_rate = cumulative.total_won_calls / cumulative.total_calls_occurred;
     }
   }
 
   const insights = generateInsights(displayMetrics, cumulative);
-
-  // For AI insight, gather all call details from filtered entries
   const allCallDetails = filteredEntries.flatMap((e) => e.call_details || []);
   const aiInsight = generateAIInsight(displayMetrics, allCallDetails, cumulative);
 
@@ -305,7 +282,6 @@ export default function DashboardPage() {
 
       {/* Row 2: Won Calls (with sub-rates) | Lost Calls (with sub-rates) */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* Won Calls Card */}
         <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
           <p className="text-sm text-[var(--muted)] mb-1">Won Calls</p>
           <p className="text-3xl font-bold text-[var(--primary)]">{agg.totalWon}</p>
@@ -325,7 +301,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Lost Calls Card */}
         <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
           <p className="text-sm text-[var(--muted)] mb-1">Lost Calls</p>
           <p className="text-3xl font-bold text-[var(--danger)]">{agg.totalLost}</p>
@@ -363,14 +338,71 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 4: Didn't Occur */}
-      {nonOccurred > 0 && (
+      {agg.didntOccur > 0 && (
         <div className="mb-6">
           <MetricCard
             label="Calls Didn't Occur"
-            value={nonOccurred}
+            value={agg.didntOccur}
             color="red"
-            subtitle={`${agg.totalScheduled} scheduled − ${agg.totalOccurred} occurred`}
+            subtitle={`${agg.totalScheduled} scheduled - ${agg.totalOccurred} occurred`}
           />
+        </div>
+      )}
+
+      {/* Monthly Breakdown Table */}
+      {!isLatest && filteredMonthly.length > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5 mb-6">
+          <button
+            onClick={() => setShowMonthlyBreakdown(!showMonthlyBreakdown)}
+            className="flex items-center justify-between w-full"
+          >
+            <h3 className="font-bold text-sm text-[var(--muted)] uppercase tracking-wide">
+              Monthly Breakdown ({filteredMonthly.length} month{filteredMonthly.length !== 1 ? "s" : ""})
+            </h3>
+            <span className="text-[var(--primary)] text-sm font-semibold">{showMonthlyBreakdown ? "Hide" : "Show"}</span>
+          </button>
+
+          {showMonthlyBreakdown && (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-[var(--primary)]">
+                    <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Month</th>
+                    <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Revenue</th>
+                    <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Enrollments</th>
+                    <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Occurred</th>
+                    <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Close Rate</th>
+                    <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">AOV</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMonthly.map((m) => {
+                    const cr = m.calls_occurred > 0 ? m.enrollments / m.calls_occurred : 0;
+                    const aov = m.enrollments > 0 ? m.revenue / m.enrollments : 0;
+                    return (
+                      <tr key={m.month} className="border-b border-[var(--card-border)] last:border-0">
+                        <td className="py-2 px-3 font-semibold">{m.label}</td>
+                        <td className="py-2 px-3 text-right">${m.revenue.toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{m.enrollments}</td>
+                        <td className="py-2 px-3 text-right">{m.calls_occurred}</td>
+                        <td className="py-2 px-3 text-right">{(cr * 100).toFixed(1)}%</td>
+                        <td className="py-2 px-3 text-right">{aov > 0 ? `$${aov.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                  {/* Totals row */}
+                  <tr className="border-t-2 border-[var(--primary)] font-bold">
+                    <td className="py-2 px-3">Total</td>
+                    <td className="py-2 px-3 text-right text-[var(--primary)]">${monthlyAgg.totalRevenue.toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right text-[var(--primary)]">{monthlyAgg.totalEnrollments}</td>
+                    <td className="py-2 px-3 text-right">{monthlyAgg.totalOccurred}</td>
+                    <td className="py-2 px-3 text-right">{(monthlyAgg.closeRate * 100).toFixed(1)}%</td>
+                    <td className="py-2 px-3 text-right">{monthlyAgg.avgAov > 0 ? `$${monthlyAgg.avgAov.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -379,17 +411,15 @@ export default function DashboardPage() {
         <PerformanceChart metrics={displayMetrics} />
       </div>
 
-      {/* AI Coaching — Elevated */}
+      {/* AI Coaching */}
       <div className="bg-[var(--primary-bg)] rounded-xl border-2 border-[var(--primary)] p-6 mb-6">
         <h3 className="font-bold text-lg text-[var(--primary)] mb-4">AI Performance Coach</h3>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Diagnosis */}
           <div className="lg:col-span-1">
             <p className="text-xs text-[var(--muted)] uppercase font-bold mb-1">Diagnosis</p>
             <p className="text-base font-bold text-[var(--foreground)]">{aiInsight.diagnosis}</p>
             <p className="text-sm text-[var(--muted)] mt-2 italic">{aiInsight.explanation}</p>
           </div>
-          {/* Actions */}
           <div className="lg:col-span-2">
             <p className="text-xs text-[var(--muted)] uppercase font-bold mb-2">Recommended Actions</p>
             <ul className="space-y-2">
@@ -405,7 +435,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Key stats for context */}
         {(cumulative.webinar_win_rate > 0 || cumulative.dm_win_rate > 0) && (
           <div className="mt-5 pt-4 border-t border-[var(--primary)]/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
             {cumulative.webinar_win_rate > 0 && (
@@ -511,8 +540,6 @@ export default function DashboardPage() {
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Occurred</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Won</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Lost</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Follow-Up</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Enrollments</th>
                   <th className="text-right py-2 px-3 font-bold text-[var(--primary)]"></th>
                 </tr>
               </thead>
@@ -525,8 +552,6 @@ export default function DashboardPage() {
                     <td className="py-2 px-3 text-right">{entry.calls_occurred}</td>
                     <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{entry.won}</td>
                     <td className="py-2 px-3 text-right text-[var(--danger)]">{entry.lost}</td>
-                    <td className="py-2 px-3 text-right text-[var(--warning)]">{entry.follow_ups}</td>
-                    <td className="py-2 px-3 text-right">{entry.enrollments || 0}</td>
                     <td className="py-2 px-3 text-right">
                       <Link href={`/edit-shift?id=${entry.id}`} className="text-[var(--primary)] hover:underline text-xs font-semibold">
                         Edit
