@@ -89,6 +89,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showShiftHistory, setShowShiftHistory] = useState(false);
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function deleteShift(id: string) {
+    if (!confirm("Delete this shift? This cannot be undone.")) return;
+    setDeleting(id);
+    await supabase.from("shift_entries").delete().eq("id", id);
+    await load();
+    setDeleting(null);
+  }
 
   const load = useCallback(async () => {
     const [shiftRes, histRes] = await Promise.all([
@@ -556,10 +565,17 @@ export default function DashboardPage() {
                     <td className="py-2 px-3 text-right">{entry.calls_occurred}</td>
                     <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{entry.won}</td>
                     <td className="py-2 px-3 text-right text-[var(--danger)]">{entry.lost}</td>
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-2 px-3 text-right space-x-2">
                       <Link href={`/edit-shift?id=${entry.id}`} className="text-[var(--primary)] hover:underline text-xs font-semibold">
                         Edit
                       </Link>
+                      <button
+                        onClick={() => entry.id && deleteShift(entry.id)}
+                        disabled={deleting === entry.id}
+                        className="text-[var(--danger)] hover:underline text-xs font-semibold disabled:opacity-50"
+                      >
+                        {deleting === entry.id ? "..." : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))}
