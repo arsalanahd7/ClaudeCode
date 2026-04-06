@@ -120,6 +120,16 @@ export function filterEntriesByDate(
   if (filter === 'all') return entries;
 
   const now = new Date();
+
+  // Handle specific month filter like "2025-11"
+  if (/^\d{4}-\d{2}$/.test(filter)) {
+    const [year, month] = filter.split('-').map(Number);
+    return entries.filter((e) => {
+      const d = new Date(e.shift_date || e.created_at || '');
+      return d.getFullYear() === year && d.getMonth() === month - 1;
+    });
+  }
+
   let cutoff: Date;
 
   switch (filter) {
@@ -127,7 +137,7 @@ export function filterEntriesByDate(
       cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
     case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
       break;
     case '3months':
       cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
@@ -136,7 +146,7 @@ export function filterEntriesByDate(
       cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
       break;
     case 'year':
-      cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      cutoff = new Date(now.getFullYear(), 0, 1);
       break;
     default:
       return entries;
@@ -155,6 +165,16 @@ export function filterHistoricalByDate(
   if (filter === 'all') return calls;
 
   const now = new Date();
+
+  // Handle specific month filter like "2025-11"
+  if (/^\d{4}-\d{2}$/.test(filter)) {
+    const [year, month] = filter.split('-').map(Number);
+    return calls.filter((c) => {
+      const d = new Date(c.call_date);
+      return d.getFullYear() === year && d.getMonth() === month - 1;
+    });
+  }
+
   let cutoff: Date;
 
   switch (filter) {
@@ -162,7 +182,7 @@ export function filterHistoricalByDate(
       cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
     case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
       break;
     case '3months':
       cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
@@ -171,7 +191,7 @@ export function filterHistoricalByDate(
       cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
       break;
     case 'year':
-      cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      cutoff = new Date(now.getFullYear(), 0, 1);
       break;
     default:
       return calls;
