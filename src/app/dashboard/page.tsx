@@ -155,8 +155,8 @@ export default function DashboardPage() {
     // Hardcoded CSV assumptions based on real HubSpot data
     const csvScheduled = 531;
     const csvOccurred = 414;
+    const csvWon = 69;
     const csvLost = 300;
-    const csvWon = csvOccurred - csvLost; // 114
     const csvNoShows = csvScheduled - csvOccurred; // 117
     const csvCancels = Math.round(csvNoShows * 0.70); // ~82
     const csvReschedules = csvNoShows - csvCancels; // ~35
@@ -345,8 +345,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 3: Close Rate | Show Rate | Follow-Ups */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      {/* Row 3: Close Rate | Show Rate */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <MetricCard
           label="Close Rate"
           value={`${(displayMetrics.close_rate * 100).toFixed(1)}%`}
@@ -359,11 +359,6 @@ export default function DashboardPage() {
           color={displayMetrics.show_rate >= 0.7 ? "green" : "red"}
           subtitle={agg.totalScheduled > 0 ? `${agg.totalOccurred} / ${agg.totalScheduled}` : undefined}
         />
-        <MetricCard
-          label="Follow-Ups"
-          value={agg.totalFollowUps}
-          color={agg.totalFollowUps > 0 ? "amber" : "default"}
-        />
       </div>
 
       {/* Row 4: Non-Occurred Breakdown */}
@@ -373,19 +368,16 @@ export default function DashboardPage() {
             label="No-Shows"
             value={nonOccurred}
             color="red"
-            subtitle={`${agg.totalScheduled} scheduled − ${agg.totalOccurred} occurred`}
           />
           <MetricCard
             label="Cancelled"
             value={agg.totalCancellations}
             color="red"
-            subtitle={`~70% of no-shows`}
           />
           <MetricCard
             label="Rescheduled"
             value={agg.totalReschedules}
             color="amber"
-            subtitle={`~30% of no-shows`}
           />
         </div>
       )}
