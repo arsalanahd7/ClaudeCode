@@ -21,6 +21,7 @@ export default function ShiftForm() {
   const [revenueCollected, setRevenueCollected] = useState("");
   const [enrollments, setEnrollments] = useState("");
   const [callsInSchedule, setCallsInSchedule] = useState("");
+  const [pccedInSchedule, setPccedInSchedule] = useState("");
 
   // Non-occurred
   const [noShows, setNoShows] = useState("");
@@ -118,7 +119,7 @@ export default function ShiftForm() {
       cancellations: cancelNum,
       decision_maker_calls: dmCalls,
       webinar_watched_calls: webinarCalls,
-      pcced_calls: pccedCalls,
+      pcced_calls: parseInt(pccedInSchedule) || 0,
       call_details: callDetails,
       win_notes: winNotes,
       loss_notes: lossNotes,
@@ -135,6 +136,7 @@ export default function ShiftForm() {
       setRevenueCollected("");
       setEnrollments("");
       setCallsInSchedule("");
+      setPccedInSchedule("");
       setNoShows("");
       setReschedules("");
       setCancellations("");
@@ -204,21 +206,35 @@ export default function ShiftForm() {
           </div>
         </div>
 
-        {/* Calls in Schedule */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
-          <input
-            type="number"
-            value={callsInSchedule}
-            onChange={(e) => {
-              setCallsInSchedule(e.target.value);
-              const newSched = parseInt(e.target.value) || 0;
-              recalcAndSync(newSched, nonOccurred);
-            }}
-            className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-            placeholder="0"
-            min={0}
-          />
+        {/* Calls in Schedule + PCCd */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
+            <input
+              type="number"
+              value={callsInSchedule}
+              onChange={(e) => {
+                setCallsInSchedule(e.target.value);
+                const newSched = parseInt(e.target.value) || 0;
+                recalcAndSync(newSched, nonOccurred);
+              }}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+              placeholder="0"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">PCCd Calls in Schedule</label>
+            <input
+              type="number"
+              value={pccedInSchedule}
+              onChange={(e) => setPccedInSchedule(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+              placeholder="0"
+              min={0}
+              max={scheduleNum}
+            />
+          </div>
         </div>
 
         {/* Non-Occurred */}
@@ -407,7 +423,8 @@ export default function ShiftForm() {
           <div className="mt-3 flex gap-4 text-sm text-[var(--muted)]">
             <span>DM: <strong className="text-[var(--primary)]">{dmCalls}/{callsOccurred}</strong></span>
             <span>Webinar: <strong className="text-[var(--primary)]">{webinarCalls}/{callsOccurred}</strong></span>
-            <span>PCCd: <strong className="text-[var(--primary)]">{pccedCalls}/{scheduleNum}</strong> ({scheduleNum > 0 ? ((pccedCalls / scheduleNum) * 100).toFixed(0) : 0}%)</span>
+            <span>PCCd Won: <strong className="text-[var(--primary)]">{callDetails.filter(c => c.pcced && c.outcome === "won").length}</strong></span>
+            <span>PCCd Lost: <strong className="text-[var(--danger)]">{callDetails.filter(c => c.pcced && c.outcome === "lost").length}</strong></span>
           </div>
         </div>
       )}
