@@ -117,7 +117,6 @@ export default function CsvUploader() {
         deal_stage: rawStage,
         outcome,
         amount: outcome === "won" ? amount : 0,
-        excluded: outcome === "excluded",
         raw_stage: rawStage,
       });
     }
@@ -141,7 +140,6 @@ export default function CsvUploader() {
         deal_stage: d.deal_stage,
         outcome: d.outcome,
         amount: d.amount,
-        excluded: d.excluded,
         raw_stage: d.raw_stage,
       }));
 
@@ -316,7 +314,7 @@ export default function CsvUploader() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
               <p className="text-xs text-[var(--muted)] uppercase">Total Revenue</p>
               <p className="text-2xl font-bold text-[var(--primary)]">${stats.total_revenue.toLocaleString()}</p>
@@ -329,26 +327,11 @@ export default function CsvUploader() {
               <p className="text-xs text-[var(--muted)] uppercase">Lost Calls</p>
               <p className="text-2xl font-bold text-[var(--danger)]">{stats.total_lost}</p>
             </div>
-            <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
-              <p className="text-xs text-[var(--muted)] uppercase">Excluded (Non-Occur / Appt / Webinar)</p>
-              <p className="text-2xl font-bold text-[var(--muted)]">{stats.total_excluded}</p>
-            </div>
-          </div>
-
-          {/* Two Close Rates */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[var(--primary-bg)] rounded-xl border border-[var(--primary)] p-5">
-              <p className="text-xs text-[var(--muted)] uppercase mb-1">Close Rate (Actionable Only)</p>
-              <p className="text-3xl font-bold text-[var(--primary)]">{(stats.close_rate_actionable * 100).toFixed(1)}%</p>
+              <p className="text-xs text-[var(--muted)] uppercase mb-1">Close Rate</p>
+              <p className="text-2xl font-bold text-[var(--primary)]">{(stats.close_rate * 100).toFixed(1)}%</p>
               <p className="text-xs text-[var(--muted)] mt-1">
-                {stats.total_won} won / {stats.total_deals} actionable calls (excludes non-occur, appointments, webinar engagement)
-              </p>
-            </div>
-            <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
-              <p className="text-xs text-[var(--muted)] uppercase mb-1">Close Rate (All Deals)</p>
-              <p className="text-3xl font-bold text-[var(--foreground)]">{(stats.close_rate_all * 100).toFixed(1)}%</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
-                {stats.total_won} won / {stats.total_rows} total (includes non-occur, appointments, webinar engagement)
+                {stats.total_won} won / {stats.total_deals} total
               </p>
             </div>
           </div>
@@ -379,11 +362,9 @@ export default function CsvUploader() {
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
                           deal.outcome === "won"
                             ? "bg-[var(--success-bg)] text-[var(--success)]"
-                            : deal.outcome === "lost"
-                            ? "bg-[var(--danger-bg)] text-[var(--danger)]"
-                            : "bg-gray-100 text-[var(--muted)]"
+                            : "bg-[var(--danger-bg)] text-[var(--danger)]"
                         }`}>
-                          {deal.outcome === "excluded" ? "Excluded" : deal.outcome === "won" ? "Won" : "Lost"}
+                          {deal.outcome === "won" ? "Won" : "Lost"}
                         </span>
                       </td>
                       <td className="py-2 px-3 text-right font-semibold">

@@ -126,24 +126,30 @@ export default function DashboardPage() {
   // Aggregate stats across all filtered entries
   const agg = aggregateEntries(filteredEntries);
 
-  // Add imported deal stats
+  // Only add imported deals and historical calls for non-latest filters
   const importStats = calculateImportStats(filteredImported);
-  agg.totalRevenue += importStats.total_revenue;
-  agg.totalOccurred += importStats.total_deals;
-  agg.totalWon += importStats.total_won;
-  agg.totalLost += importStats.total_lost;
+  if (!isLatest) {
+    agg.totalRevenue += importStats.total_revenue;
+    agg.totalOccurred += importStats.total_deals;
+    agg.totalWon += importStats.total_won;
+    agg.totalLost += importStats.total_lost;
+    // CSV won calls: 95% DM, 95% webinar, 80% PCCed
+    agg.totalDM += Math.round(importStats.total_won * 0.95);
+    agg.totalWebinar += Math.round(importStats.total_won * 0.95);
+    agg.totalPCCed += Math.round(importStats.total_won * 0.80);
 
-  // Add historical call stats
-  for (const call of filteredHistorical) {
-    agg.totalOccurred++;
-    agg.totalRevenue += call.revenue || 0;
-    if (call.outcome === "won") agg.totalWon++;
-    else if (call.outcome === "lost") agg.totalLost++;
-    else agg.totalFollowUps++;
-    if (call.enrolled) agg.totalEnrollments++;
-    if (call.decision_maker_present) agg.totalDM++;
-    if (call.webinar_watched) agg.totalWebinar++;
-    if (call.pcced) agg.totalPCCed++;
+    // Add historical call stats
+    for (const call of filteredHistorical) {
+      agg.totalOccurred++;
+      agg.totalRevenue += call.revenue || 0;
+      if (call.outcome === "won") agg.totalWon++;
+      else if (call.outcome === "lost") agg.totalLost++;
+      else agg.totalFollowUps++;
+      if (call.enrolled) agg.totalEnrollments++;
+      if (call.decision_maker_present) agg.totalDM++;
+      if (call.webinar_watched) agg.totalWebinar++;
+      if (call.pcced) agg.totalPCCed++;
+    }
   }
 
   // Calculate rates from aggregated data
@@ -163,12 +169,17 @@ export default function DashboardPage() {
   };
 
   // For insights use cumulative stats from shift data
-  const cumulative: CumulativeStats = calculateCumulativeStats(filteredEntries, filteredHistorical);
-  cumulative.total_revenue += importStats.total_revenue;
-  cumulative.total_calls_occurred += importStats.total_deals;
-  cumulative.total_won_calls += importStats.total_won;
-  if (cumulative.total_calls_occurred > 0) {
-    cumulative.avg_close_rate = cumulative.total_won_calls / cumulative.total_calls_occurred;
+  const cumulative: CumulativeStats = calculateCumulativeStats(
+    filteredEntries,
+    isLatest ? [] : filteredHistorical
+  );
+  if (!isLatest) {
+    cumulative.total_revenue += importStats.total_revenue;
+    cumulative.total_calls_occurred += importStats.total_deals;
+    cumulative.total_won_calls += importStats.total_won;
+    if (cumulative.total_calls_occurred > 0) {
+      cumulative.avg_close_rate = cumulative.total_won_calls / cumulative.total_calls_occurred;
+    }
   }
 
   const insights = generateInsights(displayMetrics, cumulative);
