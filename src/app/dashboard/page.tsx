@@ -152,14 +152,15 @@ export default function DashboardPage() {
   const importStats = calculateImportStats(filteredImported);
   const hasImportedData = filteredImported.length > 0;
   if (!isLatest && hasImportedData) {
-    // Hardcoded CSV assumptions based on real HubSpot data
-    const csvScheduled = 531;
-    const csvOccurred = 414;
-    const csvWon = 69;
-    const csvLost = 300;
-    const csvNoShows = csvScheduled - csvOccurred; // 117
-    const csvCancels = Math.round(csvNoShows * 0.70); // ~82
-    const csvReschedules = csvNoShows - csvCancels; // ~35
+    // Use actual filtered deal counts (won/lost come from real close_date filtering)
+    const csvWon = importStats.total_won;
+    const csvLost = importStats.total_lost;
+    const csvOccurred = csvWon + csvLost;
+    // Assume 70% show rate to infer scheduled
+    const csvScheduled = csvOccurred > 0 ? Math.round(csvOccurred / 0.70) : 0;
+    const csvNoShows = csvScheduled - csvOccurred;
+    const csvCancels = Math.round(csvNoShows * 0.70);
+    const csvReschedules = csvNoShows - csvCancels;
 
     agg.totalRevenue += importStats.total_revenue;
     agg.totalScheduled += csvScheduled;
@@ -361,23 +362,14 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Row 4: Non-Occurred Breakdown */}
+      {/* Row 4: Didn't Occur */}
       {nonOccurred > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="mb-6">
           <MetricCard
-            label="No-Shows"
+            label="Calls Didn't Occur"
             value={nonOccurred}
             color="red"
-          />
-          <MetricCard
-            label="Cancelled"
-            value={agg.totalCancellations}
-            color="red"
-          />
-          <MetricCard
-            label="Rescheduled"
-            value={agg.totalReschedules}
-            color="amber"
+            subtitle={`${agg.totalScheduled} scheduled − ${agg.totalOccurred} occurred`}
           />
         </div>
       )}

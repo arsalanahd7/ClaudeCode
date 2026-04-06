@@ -125,9 +125,23 @@ export default function CsvUploader() {
     setStep("results");
   }
 
-  async function saveToSupabase() {
+  async function saveToSupabase(replace: boolean = false) {
     setSaving(true);
     setError("");
+
+    // If replacing, delete existing data for this user first
+    if (replace) {
+      const userId = userName.toLowerCase().replace(/\s+/g, "_");
+      const { error: deleteError } = await supabase
+        .from("imported_deals")
+        .delete()
+        .eq("user_id", userId);
+      if (deleteError) {
+        setError(`Error clearing old data: ${deleteError.message}`);
+        setSaving(false);
+        return;
+      }
+    }
 
     // Batch insert in chunks of 100
     const chunkSize = 100;
@@ -378,18 +392,27 @@ export default function CsvUploader() {
           </div>
 
           {/* Save + Reset */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {!saved ? (
-              <button
-                onClick={saveToSupabase}
-                disabled={saving}
-                className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold rounded-lg transition-colors disabled:opacity-50"
-              >
-                {saving ? "Saving..." : `Save ${deals.length} Deals to Dashboard`}
-              </button>
+              <>
+                <button
+                  onClick={() => saveToSupabase(false)}
+                  disabled={saving}
+                  className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : `Add ${deals.length} Deals`}
+                </button>
+                <button
+                  onClick={() => saveToSupabase(true)}
+                  disabled={saving}
+                  className="px-6 py-3 bg-[var(--warning)] hover:opacity-80 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : `Replace All & Import ${deals.length} Deals`}
+                </button>
+              </>
             ) : (
               <div className="bg-[var(--success-bg)] text-[var(--success)] px-4 py-3 rounded-lg text-sm border border-[var(--success)]">
-                {deals.length} deals saved successfully! They will appear in your Cumulative Performance.
+                {deals.length} deals saved successfully! They will appear in your dashboard.
               </div>
             )}
             <button
