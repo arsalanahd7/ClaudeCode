@@ -66,3 +66,21 @@ create table historical_calls (
 
 create index idx_historical_calls_user_id on historical_calls(user_id);
 create index idx_historical_calls_date on historical_calls(call_date desc);
+
+-- Imported deals (from HubSpot CSV)
+create table imported_deals (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null,
+  user_name text not null,
+  contact_name text default '',
+  close_date text not null,
+  deal_stage text default '',
+  outcome text not null default 'won',
+  amount numeric default 0,
+  excluded boolean default false,
+  raw_stage text default '',
+  created_at timestamptz default now()
+);
+
+create index idx_imported_deals_user_id on imported_deals(user_id);
+create index idx_imported_deals_close_date on imported_deals(close_date);

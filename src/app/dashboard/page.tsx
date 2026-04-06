@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ShiftEntry, HistoricalCall } from "@/lib/types";
+import { ImportedDeal, calculateImportStats, filterDealsByDate } from "@/lib/csv-import";
 import {
   calculateMetrics,
   calculateCumulativeStats,
@@ -28,6 +29,7 @@ const TIME_FILTERS = [
 export default function DashboardPage() {
   const [entries, setEntries] = useState<ShiftEntry[]>([]);
   const [historicalCalls, setHistoricalCalls] = useState<HistoricalCall[]>([]);
+  const [importedDeals, setImportedDeals] = useState<ImportedDeal[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [timeFilter, setTimeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -35,9 +37,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [shiftRes, histRes] = await Promise.all([
+      const [shiftRes, histRes, importRes] = await Promise.all([
         supabase.from("shift_entries").select("*").order("created_at", { ascending: false }),
         supabase.from("historical_calls").select("*").order("call_date", { ascending: false }),
+        supabase.from("imported_deals").select("*").order("close_date", { ascending: false }),
       ]);
 
       if (shiftRes.data) {
@@ -49,6 +52,9 @@ export default function DashboardPage() {
       if (histRes.data) {
         setHistoricalCalls(histRes.data as HistoricalCall[]);
       }
+      if (importRes.data) {
+        setImportedDeals(importRes.data as ImportedDeal[]);
+      }
       setLoading(false);
     }
     load();
@@ -57,12 +63,23 @@ export default function DashboardPage() {
   const users = Array.from(new Map(entries.map((e) => [e.user_id, e.user_name])));
   const userEntries = entries.filter((e) => e.user_id === selectedUser);
   const userHistorical = historicalCalls.filter((c) => c.user_id === selectedUser);
+  const userImported = importedDeals.filter((d) => d.user_id === selectedUser);
 
   const filteredEntries = filterEntriesByDate(userEntries, timeFilter);
   const filteredHistorical = filterHistoricalByDate(userHistorical, timeFilter);
+  const filteredImported = filterDealsByDate(userImported, timeFilter);
 
   const latestEntry = filteredEntries[0];
   const cumulative = calculateCumulativeStats(filteredEntries, filteredHistorical);
+
+  // Add imported deal stats to cumulative
+  const importStats = calculateImportStats(filteredImported);
+  cumulative.total_revenue += importStats.total_revenue;
+  cumulative.total_calls_occurred += importStats.total_deals;
+  cumulative.total_won_calls += importStats.total_won;
+  if (cumulative.total_calls_occurred > 0) {
+    cumulative.avg_close_rate = cumulative.total_won_calls / cumulative.total_calls_occurred;
+  }
 
   if (loading) {
     return (
