@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { ShiftEntry } from "@/lib/types";
 import { calculateLeaderboard, filterEntriesByDate } from "@/lib/metrics";
@@ -20,16 +20,25 @@ export default function LeaderboardPage() {
   const [timeFilter, setTimeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from("shift_entries").select("*");
-      if (data) {
-        setEntries(data as ShiftEntry[]);
-      }
-      setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("shift_entries")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) {
+      setEntries(data as ShiftEntry[]);
     }
-    load();
+    setLoading(false);
   }, []);
+
+  // Fetch on mount and on every window focus (handles navigating back)
+  useEffect(() => {
+    load();
+    const handleFocus = () => load();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [load]);
 
   const filteredEntries = filterEntriesByDate(entries, timeFilter);
   const leaderboard = calculateLeaderboard(filteredEntries);

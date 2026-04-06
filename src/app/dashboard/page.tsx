@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { ShiftEntry, HistoricalCall, CumulativeStats } from "@/lib/types";
 import {
@@ -90,24 +90,28 @@ export default function DashboardPage() {
   const [showShiftHistory, setShowShiftHistory] = useState(false);
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      const [shiftRes, histRes] = await Promise.all([
-        supabase.from("shift_entries").select("*").order("created_at", { ascending: false }),
-        supabase.from("historical_calls").select("*").order("call_date", { ascending: false }),
-      ]);
+  const load = useCallback(async () => {
+    const [shiftRes, histRes] = await Promise.all([
+      supabase.from("shift_entries").select("*").order("created_at", { ascending: false }),
+      supabase.from("historical_calls").select("*").order("call_date", { ascending: false }),
+    ]);
 
-      if (shiftRes.data) {
-        setEntries(shiftRes.data as ShiftEntry[]);
-        if (shiftRes.data.length > 0 && !selectedUser) {
-          setSelectedUser(shiftRes.data[0].user_id);
-        }
+    if (shiftRes.data) {
+      setEntries(shiftRes.data as ShiftEntry[]);
+      if (shiftRes.data.length > 0 && !selectedUser) {
+        setSelectedUser(shiftRes.data[0].user_id);
       }
-      if (histRes.data) setHistoricalCalls(histRes.data as HistoricalCall[]);
-      setLoading(false);
     }
-    load();
+    if (histRes.data) setHistoricalCalls(histRes.data as HistoricalCall[]);
+    setLoading(false);
   }, [selectedUser]);
+
+  useEffect(() => {
+    load();
+    const handleFocus = () => load();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [load]);
 
   const users = Array.from(new Map(entries.map((e) => [e.user_id, e.user_name])));
   const userEntries = entries.filter((e) => e.user_id === selectedUser);
