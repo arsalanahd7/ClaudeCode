@@ -133,10 +133,19 @@ export default function DashboardPage() {
     agg.totalOccurred += importStats.total_deals;
     agg.totalWon += importStats.total_won;
     agg.totalLost += importStats.total_lost;
-    // CSV won calls: 95% DM, 95% webinar, 80% PCCed
-    agg.totalDM += Math.round(importStats.total_won * 0.95);
-    agg.totalWebinar += Math.round(importStats.total_won * 0.95);
+    // CSV show rate assumption: 70% — infer scheduled from occurred
+    agg.totalScheduled += Math.round(importStats.total_deals / 0.70);
+    // CSV non-occurred breakdown (30% didn't show)
+    const csvNonOccurred = Math.round(importStats.total_deals / 0.70) - importStats.total_deals;
+    agg.totalNoShows += csvNonOccurred;
+    // CSV won calls: 90% DM, 90% webinar, 80% PCCed
+    agg.totalDM += Math.round(importStats.total_won * 0.90);
+    agg.totalWebinar += Math.round(importStats.total_won * 0.90);
     agg.totalPCCed += Math.round(importStats.total_won * 0.80);
+    // CSV lost calls: 80% DM, 80% webinar, 65% PCCed
+    agg.totalDM += Math.round(importStats.total_lost * 0.80);
+    agg.totalWebinar += Math.round(importStats.total_lost * 0.80);
+    agg.totalPCCed += Math.round(importStats.total_lost * 0.65);
 
     // Add historical call stats
     for (const call of filteredHistorical) {
