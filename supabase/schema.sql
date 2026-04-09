@@ -2,6 +2,7 @@
 -- Run this in your Supabase SQL Editor
 
 -- Drop old tables if migrating
+drop table if exists imported_deals;
 drop table if exists shift_entries;
 drop table if exists historical_calls;
 
@@ -91,6 +92,3 @@ create table imported_deals (
 create index idx_imported_deals_user_id on imported_deals(user_id);
 create index idx_imported_deals_close_date on imported_deals(close_date);
 
--- Migration: Run these ALTER TABLE statements if you already have the v3 schema
--- ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS reschedule_names text default '';
--- ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS time_reflection text default '';
