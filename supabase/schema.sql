@@ -1,4 +1,4 @@
--- AdmissionPrep Sales Performance Tracker - Supabase Schema v3
+-- AdmissionPrep Sales Performance Tracker - Supabase Schema v4
 -- Run this in your Supabase SQL Editor
 
 -- Drop old tables if migrating
@@ -41,7 +41,13 @@ create table shift_entries (
 
   -- Overall shift notes
   win_notes text default '',
-  loss_notes text default ''
+  loss_notes text default '',
+
+  -- Reschedule tracking
+  reschedule_names text default '',
+
+  -- Reflection
+  time_reflection text default ''
 );
 
 create index idx_shift_entries_user_id on shift_entries(user_id);
@@ -84,3 +90,7 @@ create table imported_deals (
 
 create index idx_imported_deals_user_id on imported_deals(user_id);
 create index idx_imported_deals_close_date on imported_deals(close_date);
+
+-- Migration: Run these ALTER TABLE statements if you already have the v3 schema
+-- ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS reschedule_names text default '';
+-- ALTER TABLE shift_entries ADD COLUMN IF NOT EXISTS time_reflection text default '';

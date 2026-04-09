@@ -5,6 +5,8 @@ export interface CallDetail {
   outcome: 'won' | 'lost' | 'follow_up';
   pcced: boolean;
   notes: string;
+  win_on_call?: string;
+  lose_on_call?: string;
 }
 
 export interface ShiftEntry {
@@ -43,6 +45,12 @@ export interface ShiftEntry {
   // Overall shift notes
   win_notes: string;
   loss_notes: string;
+
+  // Reschedule tracking
+  reschedule_names?: string;
+
+  // Reflection
+  time_reflection?: string;
 }
 
 export interface HistoricalCall {

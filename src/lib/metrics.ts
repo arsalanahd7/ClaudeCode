@@ -243,14 +243,14 @@ export function generateInsights(metrics: Metrics, cumulative: CumulativeStats):
   return insights;
 }
 
-export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], cumulative: CumulativeStats): AIInsight {
+export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], cumulative: CumulativeStats, pccScheduledRate?: number): AIInsight {
   const problems: string[] = [];
   const actions: string[] = [];
+  const positives: string[] = [];
 
   const callsWithoutDM = callDetails.filter(c => !c.decision_maker_present);
   const callsWithoutWebinar = callDetails.filter(c => !c.webinar_watched);
   const followUpCalls = callDetails.filter(c => c.outcome === 'follow_up');
-  const pccedCalls = callDetails.filter(c => c.pcced);
 
   if (metrics.close_rate < 0.3) {
     problems.push('Your close rate is below 30%');
@@ -263,7 +263,10 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
     actions.push('Increase perceived value in booking confirmations');
   }
 
-  if (metrics.decision_maker_rate < 0.9) {
+  // 0 calls without DM = good
+  if (callsWithoutDM.length === 0 && callDetails.length > 0) {
+    positives.push('All calls had a decision maker present — excellent!');
+  } else if (metrics.decision_maker_rate < 0.9) {
     problems.push(`${callsWithoutDM.length} call(s) had no decision maker present`);
     actions.push('Confirm decision maker attendance during scheduling');
     const names = callsWithoutDM.map(c => c.contact_name).filter(Boolean);
@@ -272,7 +275,10 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
     }
   }
 
-  if (metrics.webinar_rate < 0.8) {
+  // 0 calls without webinar = good
+  if (callsWithoutWebinar.length === 0 && callDetails.length > 0) {
+    positives.push('All prospects watched the webinar — great prep!');
+  } else if (metrics.webinar_rate < 0.8) {
     problems.push(`${callsWithoutWebinar.length} call(s) had prospects who didn't watch the webinar`);
     actions.push('Make webinar completion a prerequisite before booking');
   }
@@ -282,9 +288,12 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
     actions.push('Push urgency harder — ask "What happens if you don\'t act on this now?"');
   }
 
-  if (pccedCalls.length > 0) {
-    problems.push(`${pccedCalls.length} call(s) were PCCed`);
-    actions.push('Review PCC patterns — are they happening with specific lead types?');
+  // Flag if <60% of scheduled calls are PCCd
+  if (pccScheduledRate !== undefined && pccScheduledRate < 0.6) {
+    problems.push(`Only ${(pccScheduledRate * 100).toFixed(0)}% of scheduled calls are PCCd (target: 60%+)`);
+    actions.push('Increase PCC completion — call every scheduled prospect before their appointment');
+  } else if (pccScheduledRate !== undefined && pccScheduledRate >= 0.6) {
+    positives.push(`${(pccScheduledRate * 100).toFixed(0)}% of scheduled calls are PCCd — solid outreach!`);
   }
 
   // Cumulative insights
@@ -293,17 +302,23 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
   }
 
   if (problems.length === 0) {
+    const goodActions = positives.length > 0 ? positives : ['Maintain your current approach'];
+    goodActions.push('Look for ways to increase deal size');
+    goodActions.push('Coach teammates on what\'s working');
     return {
       diagnosis: 'Strong performance across the board',
       explanation: 'Your metrics are healthy. Keep executing your current process consistently.',
-      actions: ['Maintain your current approach', 'Look for ways to increase deal size', 'Coach teammates on what\'s working'],
+      actions: goodActions.slice(0, 5),
     };
   }
 
   const diagnosis = problems.length === 1 ? problems[0] : `${problems.length} areas need attention`;
   const explanation = problems.join('. ') + '.';
 
-  return { diagnosis, explanation, actions: actions.slice(0, 5) };
+  // Mix positives into actions
+  const allActions = [...positives.map(p => `✓ ${p}`), ...actions];
+
+  return { diagnosis, explanation, actions: allActions.slice(0, 6) };
 }
 
 export function calculateLeaderboard(entries: ShiftEntry[]): LeaderboardEntry[] {

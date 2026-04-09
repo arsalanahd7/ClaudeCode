@@ -4,6 +4,18 @@ import { useState } from "react";
 import { CallDetail } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
+const TEAM_MEMBERS = [
+  "Arsalan",
+  "David",
+  "A-M",
+  "Shyla",
+  "Madison",
+  "Arry",
+  "Jason",
+  "Ann-Marie",
+  "Irene",
+];
+
 const EMPTY_CALL: CallDetail = {
   contact_name: "",
   webinar_watched: false,
@@ -11,6 +23,8 @@ const EMPTY_CALL: CallDetail = {
   outcome: "won",
   pcced: false,
   notes: "",
+  win_on_call: "",
+  lose_on_call: "",
 };
 
 export default function ShiftForm() {
@@ -19,7 +33,6 @@ export default function ShiftForm() {
 
   // This shift
   const [revenueCollected, setRevenueCollected] = useState("");
-  const [enrollments, setEnrollments] = useState("");
   const [callsInSchedule, setCallsInSchedule] = useState("");
   const [pccedInSchedule, setPccedInSchedule] = useState("");
 
@@ -27,6 +40,7 @@ export default function ShiftForm() {
   const [noShows, setNoShows] = useState("");
   const [reschedules, setReschedules] = useState("");
   const [cancellations, setCancellations] = useState("");
+  const [rescheduleNames, setRescheduleNames] = useState("");
 
   // Occurred outcomes
   const [wonCalls, setWonCalls] = useState("");
@@ -39,6 +53,7 @@ export default function ShiftForm() {
   // Overall notes
   const [winNotes, setWinNotes] = useState("");
   const [lossNotes, setLossNotes] = useState("");
+  const [timeReflection, setTimeReflection] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -59,7 +74,6 @@ export default function ShiftForm() {
   // Count per-call stats
   const dmCalls = callDetails.filter((c) => c.decision_maker_present).length;
   const webinarCalls = callDetails.filter((c) => c.webinar_watched).length;
-  const pccedCalls = callDetails.filter((c) => c.pcced).length;
 
   function handleCallsOccurredChange(newCount: number) {
     setCallDetails((prev) => {
@@ -90,7 +104,7 @@ export default function ShiftForm() {
     setSuccess(false);
 
     if (!userName.trim()) {
-      setError("Please enter your name.");
+      setError("Please select your name.");
       setSubmitting(false);
       return;
     }
@@ -108,7 +122,7 @@ export default function ShiftForm() {
       user_name: userName,
       shift_date: shiftDate,
       revenue_collected: parseInt(revenueCollected) || 0,
-      enrollments: parseInt(enrollments) || 0,
+      enrollments: wonNum,
       calls_in_schedule: scheduleNum,
       calls_occurred: callsOccurred,
       won: wonNum,
@@ -123,6 +137,8 @@ export default function ShiftForm() {
       call_details: callDetails,
       win_notes: winNotes,
       loss_notes: lossNotes,
+      reschedule_names: rescheduleNames,
+      time_reflection: timeReflection,
     };
 
     const { error: dbError } = await supabase
@@ -134,18 +150,19 @@ export default function ShiftForm() {
     } else {
       setSuccess(true);
       setRevenueCollected("");
-      setEnrollments("");
       setCallsInSchedule("");
       setPccedInSchedule("");
       setNoShows("");
       setReschedules("");
       setCancellations("");
+      setRescheduleNames("");
       setWonCalls("");
       setLost("");
       setFollowUps("");
       setCallDetails([]);
       setWinNotes("");
       setLossNotes("");
+      setTimeReflection("");
     }
 
     setSubmitting(false);
@@ -157,13 +174,16 @@ export default function ShiftForm() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1.5">Your Name</label>
-          <input
-            type="text"
+          <select
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-            placeholder="e.g. John Smith"
-          />
+          >
+            <option value="">Select your name...</option>
+            {TEAM_MEMBERS.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1.5">Shift Date</label>
@@ -180,30 +200,17 @@ export default function ShiftForm() {
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
         <h2 className="text-lg font-bold text-[var(--primary)] mb-4">This Shift</h2>
 
-        {/* Revenue + Enrollments */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-semibold mb-1.5">Revenue Collected ($)</label>
-            <input
-              type="number"
-              value={revenueCollected}
-              onChange={(e) => setRevenueCollected(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-              placeholder="0"
-              min={0}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1.5">Enrollments</label>
-            <input
-              type="number"
-              value={enrollments}
-              onChange={(e) => setEnrollments(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-              placeholder="0"
-              min={0}
-            />
-          </div>
+        {/* Revenue */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-1.5">Revenue Collected ($)</label>
+          <input
+            type="number"
+            value={revenueCollected}
+            onChange={(e) => setRevenueCollected(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+            placeholder="0"
+            min={0}
+          />
         </div>
 
         {/* Calls in Schedule + PCCd */}
@@ -354,7 +361,8 @@ export default function ShiftForm() {
                   <th className="text-center py-2 px-2 font-semibold">DM?</th>
                   <th className="text-left py-2 px-2 font-semibold">Outcome</th>
                   <th className="text-center py-2 px-2 font-semibold">PCCed?</th>
-                  <th className="text-left py-2 px-2 font-semibold">Notes</th>
+                  <th className="text-left py-2 px-2 font-semibold">Win on Call</th>
+                  <th className="text-left py-2 px-2 font-semibold">Lose on Call</th>
                 </tr>
               </thead>
               <tbody>
@@ -408,10 +416,19 @@ export default function ShiftForm() {
                     <td className="py-2 px-2">
                       <input
                         type="text"
-                        value={call.notes}
-                        onChange={(e) => updateCallDetail(i, "notes", e.target.value)}
+                        value={call.win_on_call || ""}
+                        onChange={(e) => updateCallDetail(i, "win_on_call", e.target.value)}
                         className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                        placeholder="Notes"
+                        placeholder="What worked"
+                      />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input
+                        type="text"
+                        value={call.lose_on_call || ""}
+                        onChange={(e) => updateCallDetail(i, "lose_on_call", e.target.value)}
+                        className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                        placeholder="What to improve"
                       />
                     </td>
                   </tr>
@@ -429,10 +446,25 @@ export default function ShiftForm() {
         </div>
       )}
 
+      {/* Reschedule Names */}
+      {rescheduleNum > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
+          <h2 className="text-lg font-bold text-[var(--warning)] mb-2">Rescheduled Calls ({rescheduleNum})</h2>
+          <p className="text-sm text-[var(--muted)] mb-3">Who rescheduled? Enter their names.</p>
+          <textarea
+            value={rescheduleNames}
+            onChange={(e) => setRescheduleNames(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+            rows={3}
+            placeholder="e.g. John Smith, Jane Doe"
+          />
+        </div>
+      )}
+
       {/* Overall Notes */}
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
         <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Shift Reflection</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-semibold mb-1.5">Win Notes</label>
             <textarea
@@ -453,6 +485,16 @@ export default function ShiftForm() {
               placeholder="What could be improved?"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-1.5">How could I have used my time better?</label>
+          <textarea
+            value={timeReflection}
+            onChange={(e) => setTimeReflection(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+            rows={3}
+            placeholder="Reflect on time management..."
+          />
         </div>
       </div>
 

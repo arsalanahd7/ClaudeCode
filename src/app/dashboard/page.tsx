@@ -16,7 +16,6 @@ import {
   aggregateMonthlyData,
 } from "@/lib/monthly-data";
 import Link from "next/link";
-import MetricCard from "@/components/MetricCard";
 import PerformanceChart from "@/components/PerformanceChart";
 import InsightPanel from "@/components/InsightPanel";
 
@@ -35,7 +34,6 @@ const TIME_FILTERS = [
   { value: "10months", label: "Last 10 Months" },
   { value: "11months", label: "Last 11 Months" },
   { value: "year", label: "Last 12 Months" },
-  // Individual months
   ...MONTHLY_DATA.map((m) => ({ value: m.month, label: m.label })).reverse(),
   { value: "all", label: "Cumulative (All Time)" },
 ];
@@ -48,14 +46,14 @@ interface AggData {
   totalLost: number;
   totalFollowUps: number;
   didntOccur: number;
-  // Won-specific rates
   wonDM: number;
   wonWebinar: number;
   wonPCC: number;
-  // Lost-specific rates
   lostDM: number;
   lostWebinar: number;
   lostPCC: number;
+  totalPCCdScheduled: number;
+  totalPCCdShowed: number;
 }
 
 function aggregateEntries(entries: ShiftEntry[]): AggData {
@@ -69,11 +67,14 @@ function aggregateEntries(entries: ShiftEntry[]): AggData {
     didntOccur: entries.reduce((s, e) => s + e.no_shows + e.reschedules + e.cancellations, 0),
     wonDM: 0, wonWebinar: 0, wonPCC: 0,
     lostDM: 0, lostWebinar: 0, lostPCC: 0,
+    totalPCCdScheduled: entries.reduce((s, e) => s + (e.pcced_calls || 0), 0),
+    totalPCCdShowed: 0,
   };
 
   for (const entry of entries) {
     if (!entry.call_details) continue;
     for (const call of entry.call_details) {
+      if (call.pcced) base.totalPCCdShowed++;
       if (call.outcome === "won") {
         if (call.decision_maker_present) base.wonDM++;
         if (call.webinar_watched) base.wonWebinar++;
@@ -95,16 +96,19 @@ export default function DashboardPage() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [timeFilter, setTimeFilter] = useState("latest");
   const [loading, setLoading] = useState(true);
-  const [showShiftHistory, setShowShiftHistory] = useState(false);
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [showCallDetails, setShowCallDetails] = useState(false);
+  const [monthlyTarget, setMonthlyTarget] = useState("");
 
-  async function deleteShift(id: string) {
-    if (!confirm("Delete this shift? This cannot be undone.")) return;
-    setDeleting(id);
-    await supabase.from("shift_entries").delete().eq("id", id);
-    await load();
-    setDeleting(null);
+  // Load monthly target from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("monthlyTarget");
+    if (saved) setMonthlyTarget(saved);
+  }, []);
+
+  function handleTargetChange(val: string) {
+    setMonthlyTarget(val);
+    localStorage.setItem("monthlyTarget", val);
   }
 
   const load = useCallback(async () => {
@@ -134,7 +138,6 @@ export default function DashboardPage() {
   const userEntries = entries.filter((e) => e.user_id === selectedUser);
   const userHistorical = historicalCalls.filter((c) => c.user_id === selectedUser);
 
-  // Filter entries based on time
   const isLatest = timeFilter === "latest";
   const dateFilter = isLatest ? "all" : timeFilter;
   const filteredEntries = isLatest
@@ -144,7 +147,6 @@ export default function DashboardPage() {
 
   const latestEntry = userEntries[0];
 
-  // Monthly data filtered by time
   const filteredMonthly = isLatest ? [] : filterMonthlyData(MONTHLY_DATA, dateFilter);
   const monthlyAgg = aggregateMonthlyData(filteredMonthly);
 
@@ -165,10 +167,8 @@ export default function DashboardPage() {
     );
   }
 
-  // Aggregate shift entries
   const agg = aggregateEntries(filteredEntries);
 
-  // Add monthly data for non-latest filters
   if (!isLatest) {
     agg.totalRevenue += monthlyAgg.totalRevenue;
     agg.totalScheduled += monthlyAgg.totalScheduled;
@@ -177,16 +177,18 @@ export default function DashboardPage() {
     agg.totalLost += monthlyAgg.totalLost;
     agg.didntOccur += monthlyAgg.didntOccur;
 
-    // Monthly won calls: 90% DM, 90% webinar, 80% PCC
     agg.wonDM += Math.round(monthlyAgg.totalEnrollments * 0.90);
     agg.wonWebinar += Math.round(monthlyAgg.totalEnrollments * 0.90);
     agg.wonPCC += Math.round(monthlyAgg.totalEnrollments * 0.80);
-    // Monthly lost calls: 80% DM, 80% webinar, 65% PCC
     agg.lostDM += Math.round(monthlyAgg.totalLost * 0.80);
     agg.lostWebinar += Math.round(monthlyAgg.totalLost * 0.80);
     agg.lostPCC += Math.round(monthlyAgg.totalLost * 0.65);
 
-    // Add historical call stats
+    // Monthly PCCd: assume 80% of scheduled were PCCd, 80% of those showed
+    const monthlyPCCdSched = Math.round(monthlyAgg.totalScheduled * 0.80);
+    agg.totalPCCdScheduled += monthlyPCCdSched;
+    agg.totalPCCdShowed += Math.round(monthlyPCCdSched * 0.80);
+
     for (const call of filteredHistorical) {
       agg.totalOccurred++;
       agg.totalRevenue += call.revenue || 0;
@@ -206,10 +208,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Enrollments always = won calls
   const totalEnrollments = agg.totalWon;
-
-  // Calculate rates
   const co = agg.totalOccurred || 1;
   const cs = agg.totalScheduled || agg.totalOccurred || 1;
   const tw = agg.totalWon || 1;
@@ -232,10 +231,17 @@ export default function DashboardPage() {
     won_rate: agg.totalWon / co,
   };
 
-  // AOV = revenue / won calls
-  const avgAov = agg.totalWon > 0 ? agg.totalRevenue / agg.totalWon : 0;
+  const pccScheduledRate = agg.totalScheduled > 0
+    ? agg.totalPCCdScheduled / agg.totalScheduled
+    : 0;
+  const pccShowUpRate = agg.totalPCCdScheduled > 0
+    ? agg.totalPCCdShowed / agg.totalPCCdScheduled
+    : 0;
 
-  // For insights
+  const avgAov = agg.totalWon > 0 ? agg.totalRevenue / agg.totalWon : 0;
+  const targetNum = parseInt(monthlyTarget) || 0;
+  const targetPct = targetNum > 0 ? (agg.totalRevenue / targetNum) * 100 : 0;
+
   const cumulative: CumulativeStats = calculateCumulativeStats(
     filteredEntries,
     isLatest ? [] : filteredHistorical
@@ -251,7 +257,7 @@ export default function DashboardPage() {
 
   const insights = generateInsights(displayMetrics, cumulative);
   const allCallDetails = filteredEntries.flatMap((e) => e.call_details || []);
-  const aiInsight = generateAIInsight(displayMetrics, allCallDetails, cumulative);
+  const aiInsight = generateAIInsight(displayMetrics, allCallDetails, cumulative, pccScheduledRate);
 
   const filterLabel = TIME_FILTERS.find((f) => f.value === timeFilter)?.label || timeFilter;
 
@@ -259,9 +265,22 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--primary)]">Dashboard</h1>
-          <p className="text-[var(--muted)] mt-1">AdmissionPrep Performance — {filterLabel}</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--primary)]">Dashboard</h1>
+            <p className="text-[var(--muted)] mt-1">AdmissionPrep Performance — {filterLabel}</p>
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--muted)] mb-0.5">Monthly Target</label>
+            <input
+              type="number"
+              value={monthlyTarget}
+              onChange={(e) => handleTargetChange(e.target.value)}
+              className="w-32 px-3 py-1.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="$0"
+              min={0}
+            />
+          </div>
         </div>
         <div className="flex gap-3">
           <select
@@ -285,28 +304,105 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 1: Revenue | Calls Occurred */}
+      {/* Row 1: Revenue | Calls Occurred (with show rate) */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
           <p className="text-sm text-[var(--muted)] mb-1">Revenue</p>
           <p className="text-3xl font-bold text-[var(--primary)]">${agg.totalRevenue.toLocaleString()}</p>
+          {targetNum > 0 && (
+            <div className="mt-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-[var(--muted)]">Target: ${targetNum.toLocaleString()}</span>
+                <span className={`font-bold ${targetPct >= 100 ? "text-[var(--primary)]" : "text-[var(--warning)]"}`}>{targetPct.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(targetPct, 100)}%`, backgroundColor: targetPct >= 100 ? "#2d5a3d" : "#b8860b" }} />
+              </div>
+            </div>
+          )}
           <p className="text-xs text-[var(--muted-light)] mt-1">
             {totalEnrollments} enrollment{totalEnrollments !== 1 ? "s" : ""} &middot; AOV {avgAov > 0 ? `$${avgAov.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
-          <p className="text-sm text-[var(--muted)] mb-1">Calls Occurred</p>
+        <div
+          className="bg-white rounded-xl border border-[var(--card-border)] p-5 cursor-pointer hover:border-[var(--primary)] transition-colors"
+          onClick={() => setShowCallDetails(!showCallDetails)}
+        >
+          <p className="text-sm text-[var(--muted)] mb-1">Calls Occurred <span className="text-xs">(click to view)</span></p>
           <p className="text-3xl font-bold text-[var(--foreground)]">{agg.totalOccurred}</p>
           <p className="text-xs text-[var(--muted-light)] mt-1">{agg.totalScheduled} in schedule</p>
+          <div className="mt-2 pt-2 border-t border-[var(--card-border)]">
+            <div className="flex justify-between text-xs">
+              <span className="text-[var(--muted)]">Show Rate</span>
+              <span className={`font-bold ${displayMetrics.show_rate >= 0.7 ? "text-[var(--primary)]" : "text-[var(--danger)]"}`}>
+                {(displayMetrics.show_rate * 100).toFixed(1)}%
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Row 2: Won Calls (with sub-rates) | Lost Calls (with sub-rates) */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      {/* Clickable Call Details */}
+      {showCallDetails && allCallDetails.length > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--primary)] p-5 mb-4">
+          <h3 className="font-bold text-sm text-[var(--primary)] uppercase tracking-wide mb-3">
+            Call Details ({allCallDetails.length} call{allCallDetails.length !== 1 ? "s" : ""})
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[var(--primary)]">
+                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Contact</th>
+                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">Webinar</th>
+                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">DM</th>
+                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Outcome</th>
+                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">PCCed</th>
+                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Win on Call</th>
+                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Lose on Call</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allCallDetails.map((call, i) => (
+                  <tr key={i} className="border-b border-[var(--card-border)] last:border-0">
+                    <td className="py-2 px-3 font-semibold">{call.contact_name || `Call ${i + 1}`}</td>
+                    <td className="py-2 px-3 text-center">{call.webinar_watched ? "Yes" : "No"}</td>
+                    <td className="py-2 px-3 text-center">{call.decision_maker_present ? "Yes" : "No"}</td>
+                    <td className="py-2 px-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
+                        call.outcome === "won"
+                          ? "bg-[var(--success-bg)] text-[var(--success)]"
+                          : call.outcome === "lost"
+                          ? "bg-[var(--danger-bg)] text-[var(--danger)]"
+                          : "bg-[var(--warning-bg)] text-[var(--warning)]"
+                      }`}>
+                        {call.outcome === "follow_up" ? "Follow-Up" : call.outcome === "won" ? "Won" : "Lost"}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-center">{call.pcced ? "Yes" : "No"}</td>
+                    <td className="py-2 px-3 text-xs text-[var(--muted)]">{call.win_on_call || call.notes || "—"}</td>
+                    <td className="py-2 px-3 text-xs text-[var(--muted)]">{call.lose_on_call || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Row 2: Enrollments (with close rate) | Lost Calls (with sub-rates) | Follow-Ups */}
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
-          <p className="text-sm text-[var(--muted)] mb-1">Won Calls</p>
+          <p className="text-sm text-[var(--muted)] mb-1">Enrollments</p>
           <p className="text-3xl font-bold text-[var(--primary)]">{agg.totalWon}</p>
-          <div className="mt-3 pt-3 border-t border-[var(--card-border)] space-y-1.5">
+          <div className="mt-2 pt-2 border-t border-[var(--card-border)]">
+            <div className="flex justify-between text-xs">
+              <span className="text-[var(--muted)]">Close Rate</span>
+              <span className={`font-bold ${displayMetrics.close_rate >= 0.3 ? "text-[var(--primary)]" : "text-[var(--danger)]"}`}>
+                {(displayMetrics.close_rate * 100).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-[var(--card-border)] space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-[var(--muted)]">DM Rate</span>
               <span className="font-semibold text-[var(--foreground)]">{(displayMetrics.won_dm_rate * 100).toFixed(0)}%</span>
@@ -332,53 +428,43 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
+          <p className="text-sm text-[var(--muted)] mb-1">Follow-Ups</p>
+          <p className="text-3xl font-bold text-[var(--warning)]">{agg.totalFollowUps}</p>
+          <p className="text-xs text-[var(--muted-light)] mt-1">
+            <Link href="/follow-ups" className="text-[var(--primary)] hover:underline">View all →</Link>
+          </p>
+        </div>
       </div>
 
-      {/* Row 2b: PCCd Calls */}
+      {/* Row 3: PCC to Calls in Schedule Rate | PCCd Calls to Show Up Rate */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <MetricCard
-          label="PCCd Calls"
-          value={agg.wonPCC + agg.lostPCC}
-          color="default"
-          subtitle={`${agg.wonPCC} won · ${agg.lostPCC} lost`}
-        />
-        <MetricCard
-          label="PCC Rate"
-          value={agg.totalScheduled > 0 ? `${(displayMetrics.pcc_rate * 100).toFixed(1)}%` : "—"}
-          color={displayMetrics.pcc_rate >= 0.5 ? "green" : "amber"}
-          subtitle={`${agg.wonPCC + agg.lostPCC} PCCd / ${agg.totalScheduled} scheduled`}
-        />
-      </div>
-
-      {/* Row 3: Close Rate | Show Rate */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <MetricCard
-          label="Close Rate"
-          value={`${(displayMetrics.close_rate * 100).toFixed(1)}%`}
-          color={displayMetrics.close_rate >= 0.3 ? "green" : "red"}
-          subtitle={`${agg.totalWon} / ${agg.totalOccurred}`}
-        />
-        <MetricCard
-          label="Show Rate"
-          value={agg.totalScheduled > 0 ? `${(displayMetrics.show_rate * 100).toFixed(1)}%` : "—"}
-          color={displayMetrics.show_rate >= 0.7 ? "green" : "red"}
-          subtitle={agg.totalScheduled > 0 ? `${agg.totalOccurred} / ${agg.totalScheduled}` : undefined}
-        />
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
+          <p className="text-sm text-[var(--muted)] mb-1">PCC to Calls in Schedule Rate</p>
+          <p className={`text-3xl font-bold ${displayMetrics.pcc_rate >= 0.5 ? "text-[var(--primary)]" : "text-[var(--warning)]"}`}>
+            {agg.totalScheduled > 0 ? `${(displayMetrics.pcc_rate * 100).toFixed(1)}%` : "—"}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
+          <p className="text-sm text-[var(--muted)] mb-1">PCCd Calls to Show Up Rate</p>
+          <p className={`text-3xl font-bold ${pccShowUpRate >= 0.7 ? "text-[var(--primary)]" : "text-[var(--warning)]"}`}>
+            {agg.totalPCCdScheduled > 0 ? `${(pccShowUpRate * 100).toFixed(1)}%` : "—"}
+          </p>
+        </div>
       </div>
 
       {/* Row 4: Didn't Occur */}
       {agg.didntOccur > 0 && (
         <div className="mb-6">
-          <MetricCard
-            label="Calls Didn't Occur"
-            value={agg.didntOccur}
-            color="red"
-            subtitle={`${agg.totalScheduled} scheduled - ${agg.totalOccurred} occurred`}
-          />
+          <div className="bg-white rounded-xl border border-[var(--card-border)] p-5">
+            <p className="text-sm text-[var(--muted)] mb-1">Calls Didn&apos;t Occur</p>
+            <p className="text-3xl font-bold text-[var(--danger)]">{agg.didntOccur}</p>
+          </div>
         </div>
       )}
 
-      {/* Monthly Breakdown Table */}
+      {/* Monthly Breakdown */}
       {!isLatest && filteredMonthly.length > 0 && (
         <div className="bg-white rounded-xl border border-[var(--card-border)] p-5 mb-6">
           <button
@@ -419,7 +505,6 @@ export default function DashboardPage() {
                       </tr>
                     );
                   })}
-                  {/* Totals row */}
                   <tr className="border-t-2 border-[var(--primary)] font-bold">
                     <td className="py-2 px-3">Total</td>
                     <td className="py-2 px-3 text-right text-[var(--primary)]">${monthlyAgg.totalRevenue.toLocaleString()}</td>
@@ -435,7 +520,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Chart */}
+      {/* Performance Chart */}
       <div className="mb-6">
         <PerformanceChart metrics={displayMetrics} />
       </div>
@@ -468,7 +553,7 @@ export default function DashboardPage() {
           <div className="mt-5 pt-4 border-t border-[var(--primary)]/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
             {cumulative.webinar_win_rate > 0 && (
               <div>
-                <p className="text-xs text-[var(--muted)] uppercase">Win Rate (Webinar)</p>
+                <p className="text-xs text-[var(--muted)] uppercase">Win Rate with Webinar Watched</p>
                 <p className="text-lg font-bold text-[var(--primary)]">{(cumulative.webinar_win_rate * 100).toFixed(0)}%</p>
               </div>
             )}
@@ -480,7 +565,7 @@ export default function DashboardPage() {
             )}
             {cumulative.dm_win_rate > 0 && (
               <div>
-                <p className="text-xs text-[var(--muted)] uppercase">Win Rate (DM Present)</p>
+                <p className="text-xs text-[var(--muted)] uppercase">Win Rate with DM Present</p>
                 <p className="text-lg font-bold text-[var(--primary)]">{(cumulative.dm_win_rate * 100).toFixed(0)}%</p>
               </div>
             )}
@@ -500,106 +585,6 @@ export default function DashboardPage() {
           <InsightPanel insights={insights} />
         </div>
       )}
-
-      {/* Per-Call Details (Latest Shift) */}
-      {latestEntry.call_details && latestEntry.call_details.length > 0 && (
-        <div className="bg-white rounded-xl border border-[var(--card-border)] p-5 mb-6">
-          <h3 className="font-bold text-sm text-[var(--muted)] uppercase tracking-wide mb-3">
-            Latest Shift — Per-Call Review ({latestEntry.shift_date || "—"})
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-[var(--primary)]">
-                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Contact</th>
-                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">Webinar</th>
-                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">DM</th>
-                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Outcome</th>
-                  <th className="text-center py-2 px-3 font-bold text-[var(--primary)]">PCCed</th>
-                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestEntry.call_details.map((call, i) => (
-                  <tr key={i} className="border-b border-[var(--card-border)] last:border-0">
-                    <td className="py-2 px-3 font-semibold">{call.contact_name || `Call ${i + 1}`}</td>
-                    <td className="py-2 px-3 text-center">{call.webinar_watched ? "Yes" : "No"}</td>
-                    <td className="py-2 px-3 text-center">{call.decision_maker_present ? "Yes" : "No"}</td>
-                    <td className="py-2 px-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
-                        call.outcome === "won"
-                          ? "bg-[var(--success-bg)] text-[var(--success)]"
-                          : call.outcome === "lost"
-                          ? "bg-[var(--danger-bg)] text-[var(--danger)]"
-                          : "bg-[var(--warning-bg)] text-[var(--warning)]"
-                      }`}>
-                        {call.outcome === "follow_up" ? "Follow-Up" : call.outcome === "won" ? "Won" : "Lost"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-center">{call.pcced ? "Yes" : "No"}</td>
-                    <td className="py-2 px-3 text-[var(--muted)] text-xs">{call.notes || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Shift History */}
-      <div className="bg-white rounded-xl border border-[var(--card-border)] p-5 mb-6">
-        <button
-          onClick={() => setShowShiftHistory(!showShiftHistory)}
-          className="flex items-center justify-between w-full"
-        >
-          <h3 className="font-bold text-sm text-[var(--muted)] uppercase tracking-wide">
-            Shift History ({filteredEntries.length} shift{filteredEntries.length !== 1 ? "s" : ""})
-          </h3>
-          <span className="text-[var(--primary)] text-sm font-semibold">{showShiftHistory ? "Hide" : "Show"}</span>
-        </button>
-
-        {showShiftHistory && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-[var(--primary)]">
-                  <th className="text-left py-2 px-3 font-bold text-[var(--primary)]">Date</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Revenue</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Scheduled</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Occurred</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Won</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]">Lost</th>
-                  <th className="text-right py-2 px-3 font-bold text-[var(--primary)]"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEntries.map((entry) => (
-                  <tr key={entry.id} className="border-b border-[var(--card-border)] last:border-0">
-                    <td className="py-2 px-3">{entry.shift_date || "—"}</td>
-                    <td className="py-2 px-3 text-right font-semibold">${(entry.revenue_collected || 0).toLocaleString()}</td>
-                    <td className="py-2 px-3 text-right">{entry.calls_in_schedule}</td>
-                    <td className="py-2 px-3 text-right">{entry.calls_occurred}</td>
-                    <td className="py-2 px-3 text-right text-[var(--primary)] font-semibold">{entry.won}</td>
-                    <td className="py-2 px-3 text-right text-[var(--danger)]">{entry.lost}</td>
-                    <td className="py-2 px-3 text-right space-x-2">
-                      <Link href={`/edit-shift?id=${entry.id}`} className="text-[var(--primary)] hover:underline text-xs font-semibold">
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => entry.id && deleteShift(entry.id)}
-                        disabled={deleting === entry.id}
-                        className="text-[var(--danger)] hover:underline text-xs font-semibold disabled:opacity-50"
-                      >
-                        {deleting === entry.id ? "..." : "Delete"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {/* Notes (from latest shift) */}
       {(latestEntry.win_notes || latestEntry.loss_notes) && (

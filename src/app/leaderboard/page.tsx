@@ -29,9 +29,12 @@ const TIME_FILTERS = [
   { value: "all", label: "Cumulative (All Time)" },
 ];
 
+type SortBy = "combined" | "close_rate" | "revenue";
+
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<ShiftEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<SortBy>("combined");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -75,11 +78,12 @@ export default function LeaderboardPage() {
     const shiftOccurred = userEntries.reduce((s, e) => s + e.calls_occurred, 0);
     const shiftScheduled = userEntries.reduce((s, e) => s + e.calls_in_schedule, 0);
 
-    // Add monthly data
-    const totalRevenue = shiftRevenue + monthlyAgg.totalRevenue;
-    const totalWon = shiftWon + monthlyAgg.totalEnrollments;
-    const totalOccurred = shiftOccurred + monthlyAgg.totalOccurred;
-    const totalScheduled = shiftScheduled + monthlyAgg.totalScheduled;
+    // Add monthly data (all historical data is Arsalan's)
+    const isArsalan = user_id === "arsalan" || name.toLowerCase().includes("arsalan");
+    const totalRevenue = shiftRevenue + (isArsalan ? monthlyAgg.totalRevenue : 0);
+    const totalWon = shiftWon + (isArsalan ? monthlyAgg.totalEnrollments : 0);
+    const totalOccurred = shiftOccurred + (isArsalan ? monthlyAgg.totalOccurred : 0);
+    const totalScheduled = shiftScheduled + (isArsalan ? monthlyAgg.totalScheduled : 0);
 
     const avgCloseRate = totalOccurred > 0 ? totalWon / totalOccurred : 0;
     const avgShowRate = totalScheduled > 0 ? totalOccurred / totalScheduled : 0;
@@ -99,11 +103,11 @@ export default function LeaderboardPage() {
     });
   }
 
-  // If no shift entries but monthly data exists, show it
+  // If no shift entries but monthly data exists, show as Arsalan Ahmed
   if (leaderboard.length === 0 && monthlyAgg.totalOccurred > 0) {
     leaderboard.push({
-      user_id: "monthly",
-      user_name: "Historical Data",
+      user_id: "arsalan",
+      user_name: "Arsalan Ahmed",
       total_revenue: monthlyAgg.totalRevenue,
       avg_close_rate: monthlyAgg.closeRate,
       avg_show_rate: monthlyAgg.showRate,
@@ -112,9 +116,21 @@ export default function LeaderboardPage() {
     });
   }
 
-  leaderboard.sort((a, b) => b.score - a.score);
+  // Sort based on selected criteria
+  if (sortBy === "close_rate") {
+    leaderboard.sort((a, b) => b.avg_close_rate - a.avg_close_rate);
+  } else if (sortBy === "revenue") {
+    leaderboard.sort((a, b) => b.total_revenue - a.total_revenue);
+  } else {
+    leaderboard.sort((a, b) => b.score - a.score);
+  }
 
   const filterLabel = TIME_FILTERS.find((f) => f.value === timeFilter)?.label || timeFilter;
+  const sortLabels: Record<SortBy, string> = {
+    combined: "50% revenue + 30% close rate + 20% show rate",
+    close_rate: "Close Rate",
+    revenue: "Revenue",
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -122,18 +138,29 @@ export default function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--primary)]">Leaderboard</h1>
           <p className="text-[var(--muted)] mt-1">
-            Ranked by composite score: 50% revenue + 30% close rate + 20% show rate — {filterLabel}
+            Ranked by {sortLabels[sortBy]} — {filterLabel}
           </p>
         </div>
-        <select
-          value={timeFilter}
-          onChange={(e) => setTimeFilter(e.target.value)}
-          className="px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        >
-          {TIME_FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>{f.label}</option>
-          ))}
-        </select>
+        <div className="flex gap-3">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+          >
+            <option value="combined">Combined Score</option>
+            <option value="close_rate">Close Rate</option>
+            <option value="revenue">Revenue</option>
+          </select>
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value)}
+            className="px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+          >
+            {TIME_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading ? (

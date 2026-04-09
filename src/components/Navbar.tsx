@@ -4,16 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/", label: "End of Shift" },
+  { href: "/shift", label: "End of Shift" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/shift-history", label: "Shift History" },
   { href: "/follow-ups", label: "Follow-Ups" },
-  { href: "/import", label: "Import CSV" },
+  { href: "/rescheduled", label: "Rescheduled" },
   { href: "/history", label: "Manual Input" },
   { href: "/leaderboard", label: "Leaderboard" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+
+  if (pathname === "/") return null;
 
   return (
     <nav className="bg-white border-b border-[var(--card-border)] sticky top-0 z-50">
