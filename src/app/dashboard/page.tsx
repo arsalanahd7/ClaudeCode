@@ -261,6 +261,12 @@ export default function DashboardPage() {
 
   const filterLabel = TIME_FILTERS.find((f) => f.value === timeFilter)?.label || timeFilter;
 
+  const hasPreShiftGoals =
+    (latestEntry.pre_shift_revenue_goal || 0) +
+      (latestEntry.pre_shift_enrollments_goal || 0) +
+      (latestEntry.pre_shift_calls_goal || 0) >
+    0;
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
@@ -303,6 +309,64 @@ export default function DashboardPage() {
           </select>
         </div>
       </div>
+
+      {/* Goal vs Actual (only when viewing latest shift with pre-shift goals) */}
+      {isLatest && hasPreShiftGoals && (
+        <div className="bg-white rounded-xl border border-[var(--primary)] p-5 mb-4">
+          <h3 className="font-bold text-sm text-[var(--primary)] uppercase tracking-wide mb-3">
+            Pre-Shift Goal vs Actual
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {(() => {
+              const revGoal = latestEntry.pre_shift_revenue_goal || 0;
+              const enrGoal = latestEntry.pre_shift_enrollments_goal || 0;
+              const callsGoal = latestEntry.pre_shift_calls_goal || 0;
+              const revActual = latestEntry.revenue_collected || 0;
+              const enrActual = latestEntry.won || 0;
+              const callsActual = latestEntry.calls_in_schedule || 0;
+              const items = [
+                { label: "Revenue", goal: revGoal, actual: revActual, prefix: "$" },
+                { label: "Enrollments", goal: enrGoal, actual: enrActual, prefix: "" },
+                { label: "Calls", goal: callsGoal, actual: callsActual, prefix: "" },
+              ];
+              return items.map((item) => {
+                const pct = item.goal > 0 ? (item.actual / item.goal) * 100 : 0;
+                const hit = pct >= 100;
+                return (
+                  <div key={item.label} className="border border-[var(--card-border)] rounded-lg p-3">
+                    <p className="text-xs text-[var(--muted)] mb-1">{item.label}</p>
+                    <p className="text-lg font-bold text-[var(--foreground)]">
+                      {item.prefix}{item.actual.toLocaleString()}
+                      <span className="text-xs text-[var(--muted)] font-normal"> / {item.prefix}{item.goal.toLocaleString()}</span>
+                    </p>
+                    {item.goal > 0 && (
+                      <>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div
+                            className="h-2 rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(pct, 100)}%`,
+                              backgroundColor: hit ? "#2d5a3d" : "#b8860b",
+                            }}
+                          />
+                        </div>
+                        <p className={`text-xs font-bold mt-1 ${hit ? "text-[var(--primary)]" : "text-[var(--warning)]"}`}>
+                          {pct.toFixed(0)}% {hit ? "✓ Hit" : "of goal"}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          {(latestEntry.pcc_attempts || 0) > 0 && (
+            <p className="text-xs text-[var(--muted)] mt-3">
+              PCC Attempts this shift: <strong className="text-[var(--primary)]">{latestEntry.pcc_attempts}</strong>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Row 1: Revenue | Calls Occurred (with show rate) */}
       <div className="grid grid-cols-2 gap-4 mb-4">

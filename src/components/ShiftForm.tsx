@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CallDetail } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
@@ -31,10 +31,21 @@ export default function ShiftForm() {
   const [userName, setUserName] = useState("");
   const [shiftDate, setShiftDate] = useState(new Date().toISOString().split("T")[0]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("defaultName");
+    if (saved) setUserName(saved);
+  }, []);
+
+  // Pre-shift goals
+  const [preRevenueGoal, setPreRevenueGoal] = useState("");
+  const [preEnrollmentsGoal, setPreEnrollmentsGoal] = useState("");
+  const [preCallsGoal, setPreCallsGoal] = useState("");
+
   // This shift
   const [revenueCollected, setRevenueCollected] = useState("");
   const [callsInSchedule, setCallsInSchedule] = useState("");
   const [pccedInSchedule, setPccedInSchedule] = useState("");
+  const [pccAttempts, setPccAttempts] = useState("");
 
   // Non-occurred
   const [noShows, setNoShows] = useState("");
@@ -139,6 +150,10 @@ export default function ShiftForm() {
       loss_notes: lossNotes,
       reschedule_names: rescheduleNames,
       time_reflection: timeReflection,
+      pre_shift_revenue_goal: parseInt(preRevenueGoal) || 0,
+      pre_shift_enrollments_goal: parseInt(preEnrollmentsGoal) || 0,
+      pre_shift_calls_goal: parseInt(preCallsGoal) || 0,
+      pcc_attempts: parseInt(pccAttempts) || 0,
     };
 
     const { error: dbError } = await supabase
@@ -149,9 +164,13 @@ export default function ShiftForm() {
       setError(dbError.message);
     } else {
       setSuccess(true);
+      setPreRevenueGoal("");
+      setPreEnrollmentsGoal("");
+      setPreCallsGoal("");
       setRevenueCollected("");
       setCallsInSchedule("");
       setPccedInSchedule("");
+      setPccAttempts("");
       setNoShows("");
       setReschedules("");
       setCancellations("");
@@ -196,6 +215,49 @@ export default function ShiftForm() {
         </div>
       </div>
 
+      {/* Pre-Shift Goals */}
+      <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
+        <h2 className="text-lg font-bold text-[var(--primary)] mb-1">Pre-Shift Goals</h2>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          Set targets before your shift. These are what you aim to achieve.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Revenue Goal ($)</label>
+            <input
+              type="number"
+              value={preRevenueGoal}
+              onChange={(e) => setPreRevenueGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="0"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Enrollments Goal</label>
+            <input
+              type="number"
+              value={preEnrollmentsGoal}
+              onChange={(e) => setPreEnrollmentsGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="0"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Calls Goal</label>
+            <input
+              type="number"
+              value={preCallsGoal}
+              onChange={(e) => setPreCallsGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="0"
+              min={0}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* This Shift Section */}
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
         <h2 className="text-lg font-bold text-[var(--primary)] mb-4">This Shift</h2>
@@ -213,8 +275,8 @@ export default function ShiftForm() {
           />
         </div>
 
-        {/* Calls in Schedule + PCCd */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Calls in Schedule + PCCd + PCC Attempts */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
             <input
@@ -240,6 +302,18 @@ export default function ShiftForm() {
               placeholder="0"
               min={0}
               max={scheduleNum}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">PCC Attempts</label>
+            <input
+              type="number"
+              value={pccAttempts}
+              onChange={(e) => setPccAttempts(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+              placeholder="0"
+              min={0}
+              title="Total PCC outreach attempts made during the shift"
             />
           </div>
         </div>

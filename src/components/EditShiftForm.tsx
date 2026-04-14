@@ -27,9 +27,13 @@ export default function EditShiftForm() {
   const [error, setError] = useState("");
 
   const [shiftDate, setShiftDate] = useState("");
+  const [preRevenueGoal, setPreRevenueGoal] = useState("");
+  const [preEnrollmentsGoal, setPreEnrollmentsGoal] = useState("");
+  const [preCallsGoal, setPreCallsGoal] = useState("");
   const [revenueCollected, setRevenueCollected] = useState("");
   const [callsInSchedule, setCallsInSchedule] = useState("");
   const [pccedInSchedule, setPccedInSchedule] = useState("");
+  const [pccAttempts, setPccAttempts] = useState("");
   const [noShows, setNoShows] = useState("");
   const [reschedules, setReschedules] = useState("");
   const [cancellations, setCancellations] = useState("");
@@ -55,9 +59,13 @@ export default function EditShiftForm() {
       if (data) {
         const entry = data as ShiftEntry;
         setShiftDate(entry.shift_date || "");
+        setPreRevenueGoal(String(entry.pre_shift_revenue_goal || 0));
+        setPreEnrollmentsGoal(String(entry.pre_shift_enrollments_goal || 0));
+        setPreCallsGoal(String(entry.pre_shift_calls_goal || 0));
         setRevenueCollected(String(entry.revenue_collected || 0));
         setCallsInSchedule(String(entry.calls_in_schedule));
         setPccedInSchedule(String(entry.pcced_calls || 0));
+        setPccAttempts(String(entry.pcc_attempts || 0));
         setNoShows(String(entry.no_shows));
         setReschedules(String(entry.reschedules));
         setCancellations(String(entry.cancellations));
@@ -132,6 +140,10 @@ export default function EditShiftForm() {
         loss_notes: lossNotes,
         reschedule_names: rescheduleNames,
         time_reflection: timeReflection,
+        pre_shift_revenue_goal: parseInt(preRevenueGoal) || 0,
+        pre_shift_enrollments_goal: parseInt(preEnrollmentsGoal) || 0,
+        pre_shift_calls_goal: parseInt(preCallsGoal) || 0,
+        pcc_attempts: parseInt(pccAttempts) || 0,
       })
       .eq("id", shiftId);
 
@@ -164,6 +176,29 @@ export default function EditShiftForm() {
         />
       </div>
 
+      {/* Pre-Shift Goals */}
+      <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
+        <h2 className="text-lg font-bold text-[var(--primary)] mb-1">Pre-Shift Goals</h2>
+        <p className="text-sm text-[var(--muted)] mb-4">Targets set before the shift.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Revenue Goal ($)</label>
+            <input type="number" value={preRevenueGoal} onChange={(e) => setPreRevenueGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Enrollments Goal</label>
+            <input type="number" value={preEnrollmentsGoal} onChange={(e) => setPreEnrollmentsGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Calls Goal</label>
+            <input type="number" value={preCallsGoal} onChange={(e) => setPreCallsGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
+        </div>
+      </div>
+
       {/* Revenue */}
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
         <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Shift Data</h2>
@@ -173,8 +208,8 @@ export default function EditShiftForm() {
             className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
         </div>
 
-        {/* Calls in Schedule + PCCd */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Calls in Schedule + PCCd + PCC Attempts */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
             <input type="number" value={callsInSchedule}
@@ -190,6 +225,12 @@ export default function EditShiftForm() {
             <input type="number" value={pccedInSchedule}
               onChange={(e) => setPccedInSchedule(e.target.value)}
               className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} max={scheduleNum} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">PCC Attempts</label>
+            <input type="number" value={pccAttempts}
+              onChange={(e) => setPccAttempts(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
           </div>
         </div>
 

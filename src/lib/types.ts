@@ -51,6 +51,14 @@ export interface ShiftEntry {
 
   // Reflection
   time_reflection?: string;
+
+  // Pre-shift goals (set before the shift)
+  pre_shift_revenue_goal?: number;
+  pre_shift_enrollments_goal?: number;
+  pre_shift_calls_goal?: number;
+
+  // PCC outreach attempts during the shift (separate from pcced_calls in schedule)
+  pcc_attempts?: number;
 }
 
 export interface HistoricalCall {

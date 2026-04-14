@@ -48,7 +48,15 @@ create table shift_entries (
   reschedule_names text default '',
 
   -- Reflection
-  time_reflection text default ''
+  time_reflection text default '',
+
+  -- Pre-shift goals (set before the shift begins)
+  pre_shift_revenue_goal numeric default 0,
+  pre_shift_enrollments_goal integer default 0,
+  pre_shift_calls_goal integer default 0,
+
+  -- PCC outreach attempts made during the shift
+  pcc_attempts integer not null default 0
 );
 
 create index idx_shift_entries_user_id on shift_entries(user_id);
