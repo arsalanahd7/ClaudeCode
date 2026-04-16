@@ -185,23 +185,23 @@ function getDateCutoff(now: Date, filter: string): Date | null {
 export function generateInsights(metrics: Metrics, cumulative: CumulativeStats): Insight[] {
   const insights: Insight[] = [];
 
-  if (metrics.close_rate < 0.3) {
-    insights.push({ flag: 'Focus on closing on-call', severity: 'critical' });
+  if (metrics.close_rate < 0.2) {
+    insights.push({ flag: 'Close rate below 20% on calls — review discovery and closing mechanics', severity: 'critical' });
   }
-  if (metrics.show_rate < 0.7) {
-    insights.push({ flag: 'Improve reminders / lead prep', severity: 'critical' });
+  if (metrics.show_rate < 0.55) {
+    insights.push({ flag: 'Show rate below 55% — tighten booking confirmations and PCC outreach', severity: 'critical' });
   }
-  if (metrics.decision_maker_rate < 0.9) {
-    insights.push({ flag: 'Always involve decision makers', severity: 'warning' });
+  if (metrics.decision_maker_rate < 0.7) {
+    insights.push({ flag: 'Less than 70% of calls have DM present — confirm DM attendance at booking', severity: 'warning' });
   }
-  if (metrics.webinar_rate < 0.8) {
-    insights.push({ flag: 'Ensure prospects watch webinar', severity: 'warning' });
+  if (metrics.webinar_rate < 0.7) {
+    insights.push({ flag: 'Less than 70% of prospects watched the webinar — make it a booking prerequisite', severity: 'warning' });
   }
-  if (metrics.follow_up_rate > 0.5) {
-    insights.push({ flag: 'High follow-up ratio — push for on-call decisions', severity: 'warning' });
+  if (metrics.follow_up_rate > 0.4) {
+    insights.push({ flag: 'Over 40% of calls defer to follow-up — push harder for on-call decisions', severity: 'warning' });
   }
   if (metrics.non_occurred_rate > 0.3) {
-    insights.push({ flag: 'High non-occurred rate — review scheduling process', severity: 'warning' });
+    insights.push({ flag: 'Over 30% of scheduled calls didn\u2019t occur — review booking quality', severity: 'warning' });
   }
 
   // Webinar/DM effect insights
@@ -252,13 +252,13 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
   const callsWithoutWebinar = callDetails.filter(c => !c.webinar_watched);
   const followUpCalls = callDetails.filter(c => c.outcome === 'follow_up');
 
-  if (metrics.close_rate < 0.3) {
-    problems.push('Your close rate is below 30%');
+  if (metrics.close_rate < 0.2) {
+    problems.push('Your call close rate is below 20%');
     actions.push('Focus on closing during the call — avoid deferring to follow-ups');
   }
 
-  if (metrics.show_rate < 0.7) {
-    problems.push('More than 30% of scheduled calls are not occurring');
+  if (metrics.show_rate < 0.55) {
+    problems.push('Show rate below 55% — nearly half your booked calls aren\u2019t happening');
     actions.push('Send confirmation messages 24h and 1h before each call');
     actions.push('Increase perceived value in booking confirmations');
   }
