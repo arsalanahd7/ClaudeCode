@@ -3,14 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
+const salesItems = [
   { href: "/shift", label: "End of Shift" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/shift-history", label: "Shift History" },
+  { href: "/shift-history", label: "History" },
   { href: "/follow-ups", label: "Follow-Ups" },
   { href: "/rescheduled", label: "Rescheduled" },
   { href: "/history", label: "Manual Input" },
   { href: "/leaderboard", label: "Leaderboard" },
+];
+
+const coachingItems = [
+  { href: "/calls", label: "Call Log" },
+  { href: "/reps", label: "Rep Profiles" },
+  { href: "/coaching", label: "Coaching" },
 ];
 
 export default function Navbar() {
@@ -18,21 +24,43 @@ export default function Navbar() {
 
   if (pathname === "/") return null;
 
+  const isCoachingSection =
+    pathname.startsWith("/calls") ||
+    pathname.startsWith("/reps") ||
+    pathname.startsWith("/coaching");
+
   return (
     <nav className="bg-white border-b border-[var(--card-border)] sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
+        {/* Main row */}
+        <div className="flex items-center justify-between h-14">
           <Link href="/" className="font-bold text-xl text-[var(--primary)] tracking-tight">
             AdmissionPrep
           </Link>
           <div className="flex items-center gap-1">
-            {navItems.map((item) => (
+            {salesItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   pathname === item.href
                     ? "bg-[var(--primary)] text-white"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--primary-bg)]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <span className="mx-1 text-[var(--card-border)]">|</span>
+            {coachingItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  pathname === item.href || (item.href === "/calls" && pathname.startsWith("/calls/")) || (item.href === "/reps" && pathname.startsWith("/reps/"))
+                    ? "bg-[var(--primary)] text-white"
+                    : isCoachingSection
+                    ? "text-[var(--foreground)] hover:bg-[var(--primary-bg)]"
                     : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--primary-bg)]"
                 }`}
               >
@@ -43,7 +71,7 @@ export default function Navbar() {
               href="/settings"
               aria-label="Advanced Settings"
               title="Advanced Settings"
-              className={`ml-1 p-2 rounded-lg transition-colors ${
+              className={`ml-1 p-1.5 rounded-lg transition-colors ${
                 pathname === "/settings"
                   ? "bg-[var(--primary)] text-white"
                   : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--primary-bg)]"
@@ -51,8 +79,8 @@ export default function Navbar() {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
