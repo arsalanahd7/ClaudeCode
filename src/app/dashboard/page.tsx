@@ -115,6 +115,8 @@ export default function DashboardPage() {
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
   const [showCallDetails, setShowCallDetails] = useState(false);
   const [monthlyTarget, setMonthlyTarget] = useState("");
+  const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [staleReps, setStaleReps] = useState<string[]>([]);
 
   // Load monthly target from localStorage
   useEffect(() => {
@@ -128,9 +130,21 @@ export default function DashboardPage() {
   }
 
   const load = useCallback(async () => {
-    const [shiftRes, histRes] = await Promise.all([
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+
+    const [shiftRes, histRes, callsRes, reviewsRes] = await Promise.all([
       supabase.from("shift_entries").select("*").order("created_at", { ascending: false }),
       supabase.from("historical_calls").select("*").order("call_date", { ascending: false }),
+      supabase
+        .from("calls")
+        .select("id, user_name, call_date, outcome")
+        .in("outcome", ["won", "lost"])
+        .gte("call_date", sevenDaysAgoStr),
+      supabase
+        .from("call_reviews")
+        .select("call_id"),
     ]);
 
     if (shiftRes.data) {
@@ -140,6 +154,32 @@ export default function DashboardPage() {
       }
     }
     if (histRes.data) setHistoricalCalls(histRes.data as HistoricalCall[]);
+
+    // Calculate unreviewed calls and stale reps
+    if (callsRes.data && reviewsRes.data) {
+      const reviewedCallIds = new Set(
+        reviewsRes.data.map((r: { call_id: string }) => r.call_id)
+      );
+      const unreviewed = callsRes.data.filter(
+        (c: { id: string }) => !reviewedCallIds.has(c.id)
+      );
+      setUnreviewedCount(unreviewed.length);
+
+      // Reps with calls in last 7 days but zero reviews
+      const repsWithCalls = new Set(
+        callsRes.data.map((c: { user_name: string }) => c.user_name)
+      );
+      const repsWithReviews = new Set(
+        callsRes.data
+          .filter((c: { id: string }) => reviewedCallIds.has(c.id))
+          .map((c: { user_name: string }) => c.user_name)
+      );
+      const stale = Array.from(repsWithCalls).filter(
+        (name) => !repsWithReviews.has(name)
+      ) as string[];
+      setStaleReps(stale);
+    }
+
     setLoading(false);
   }, [selectedUser]);
 
@@ -390,6 +430,29 @@ export default function DashboardPage() {
       {usesHistoricalEstimates && (
         <div className="bg-[var(--primary-bg)] border border-[var(--primary)] text-[var(--primary)] px-4 py-3 rounded-lg text-xs mb-4">
           <strong>Note:</strong> Historical months include estimated DM/Webinar/PCC rates (90%/90%/80% for wins, 80%/80%/65% for losses) derived from monthly totals — not from per-call records.
+        </div>
+      )}
+
+      {/* Reviews Needed Banner */}
+      {unreviewedCount > 0 && (
+        <div className="bg-white border-2 border-[var(--warning)] rounded-xl p-4 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-[var(--foreground)]">
+              {unreviewedCount} call{unreviewedCount !== 1 ? "s" : ""} need review
+              <span className="text-[var(--muted)] font-normal ml-1">(last 7 days)</span>
+            </p>
+            {staleReps.length > 0 && (
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                No reviews yet for: <strong className="text-[var(--danger)]">{staleReps.join(", ")}</strong>
+              </p>
+            )}
+          </div>
+          <Link
+            href="/calls"
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-[var(--warning)] text-white hover:opacity-90 transition-opacity whitespace-nowrap"
+          >
+            Review Calls →
+          </Link>
         </div>
       )}
 

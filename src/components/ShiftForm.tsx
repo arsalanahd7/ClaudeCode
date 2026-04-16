@@ -156,13 +156,35 @@ export default function ShiftForm() {
       pcc_attempts: parseInt(pccAttempts) || 0,
     };
 
-    const { error: dbError } = await supabase
+    const { data: inserted, error: dbError } = await supabase
       .from("shift_entries")
-      .insert([entry]);
+      .insert([entry])
+      .select("id")
+      .single();
 
     if (dbError) {
       setError(dbError.message);
     } else {
+      // Auto-sync call details into the calls table for coaching reviews
+      if (callDetails.length > 0 && inserted?.id) {
+        const callRows = callDetails.map((cd) => ({
+          user_id: userId,
+          user_name: userName,
+          shift_entry_id: inserted.id,
+          call_date: shiftDate,
+          contact_name: cd.contact_name,
+          outcome: cd.outcome,
+          revenue: 0,
+          enrolled: cd.outcome === "won",
+          webinar_watched: cd.webinar_watched,
+          decision_maker_present: cd.decision_maker_present,
+          pcced: cd.pcced,
+          lead_quality: 2,
+          rep_notes: cd.outcome === "won" ? (cd.win_on_call || "") : (cd.lose_on_call || ""),
+        }));
+        await supabase.from("calls").insert(callRows);
+      }
+
       setSuccess(true);
       setPreRevenueGoal("");
       setPreEnrollmentsGoal("");

@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { CoachingSession } from "@/lib/types";
-import { RUBRIC_LABELS, FOCUS_OPTIONS } from "@/lib/coaching";
+import { CoachingSession, CallReview, RubricCategory } from "@/lib/types";
+import { RUBRIC_LABELS, RUBRIC_CATEGORIES, FOCUS_OPTIONS } from "@/lib/coaching";
+import Link from "next/link";
 
 const TEAM_MEMBERS = [
   "Arsalan",
@@ -57,9 +58,24 @@ function StatusBadge({ session }: { session: CoachingSession }) {
   );
 }
 
+interface HeatmapCell {
+  avg: number | null;
+  count: number;
+}
+type HeatmapRow = Record<RubricCategory, HeatmapCell>;
+type HeatmapData = Record<string, HeatmapRow>; // keyed by user_name
+
+function heatmapColor(avg: number | null): string {
+  if (avg == null) return "bg-gray-100 text-gray-400";
+  if (avg >= 4.0) return "bg-emerald-100 text-emerald-800";
+  if (avg >= 3.0) return "bg-yellow-100 text-yellow-800";
+  return "bg-red-100 text-red-800";
+}
+
 export default function CoachingPage() {
   const [sessions, setSessions] = useState<CoachingSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [heatmap, setHeatmap] = useState<HeatmapData>({});
 
   // Open commitments state
   const [expandedFollowUp, setExpandedFollowUp] = useState<string | null>(null);
@@ -84,14 +100,66 @@ export default function CoachingPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadSessions = useCallback(async () => {
-    const { data } = await supabase
-      .from("coaching_sessions")
-      .select("*")
-      .order("session_date", { ascending: false });
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
 
-    if (data) {
-      setSessions(data as CoachingSession[]);
+    const [sessionsRes, callsRes, reviewsRes] = await Promise.all([
+      supabase
+        .from("coaching_sessions")
+        .select("*")
+        .order("session_date", { ascending: false }),
+      supabase
+        .from("calls")
+        .select("id, user_id, user_name")
+        .gte("call_date", thirtyDaysAgoStr),
+      supabase
+        .from("call_reviews")
+        .select("call_id, discovery_score, objection_handling_score, closing_mechanics_score, value_framing_score, call_control_score, dm_strategy_score")
+        .gte("reviewed_at", thirtyDaysAgo.toISOString()),
+    ]);
+
+    if (sessionsRes.data) {
+      setSessions(sessionsRes.data as CoachingSession[]);
     }
+
+    // Build heatmap: rep × category
+    if (callsRes.data && reviewsRes.data) {
+      const callMap = new Map<string, { user_name: string }>();
+      for (const c of callsRes.data) {
+        callMap.set(c.id, { user_name: c.user_name });
+      }
+
+      const grid: HeatmapData = {};
+      for (const name of TEAM_MEMBERS) {
+        const row: HeatmapRow = {} as HeatmapRow;
+        for (const cat of RUBRIC_CATEGORIES) {
+          row[cat] = { avg: null, count: 0 };
+        }
+        grid[name] = row;
+      }
+
+      for (const review of reviewsRes.data as CallReview[]) {
+        const call = callMap.get(review.call_id);
+        if (!call) continue;
+        const repName = call.user_name;
+        if (!grid[repName]) continue;
+
+        for (const cat of RUBRIC_CATEGORIES) {
+          const scoreKey = `${cat}_score` as keyof CallReview;
+          const val = review[scoreKey] as number | null;
+          if (val != null) {
+            const cell = grid[repName][cat];
+            const prevTotal = (cell.avg || 0) * cell.count;
+            cell.count++;
+            cell.avg = Math.round(((prevTotal + val) / cell.count) * 100) / 100;
+          }
+        }
+      }
+
+      setHeatmap(grid);
+    }
+
     setLoading(false);
   }, []);
 
@@ -174,6 +242,68 @@ export default function CoachingPage() {
           {sessions.length} session{sessions.length !== 1 ? "s" : ""} recorded
         </p>
       </div>
+
+      {/* Section 0: Team Heatmap */}
+      {Object.keys(heatmap).length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-bold text-[var(--foreground)] mb-4">Team Skill Heatmap <span className="text-sm font-normal text-[var(--muted)]">(last 30 days)</span></h2>
+          <div className="bg-white rounded-xl border border-[var(--card-border)] p-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[var(--primary)]">
+                  <th className="text-left py-2 px-2 font-bold text-[var(--primary)] min-w-[100px]">Rep</th>
+                  {RUBRIC_CATEGORIES.map((cat) => (
+                    <th key={cat} className="text-center py-2 px-2 font-bold text-[var(--primary)] min-w-[90px]">
+                      <span className="text-xs">{RUBRIC_LABELS[cat].split(" ")[0]}</span>
+                    </th>
+                  ))}
+                  <th className="text-center py-2 px-2 font-bold text-[var(--primary)] min-w-[70px]">
+                    <span className="text-xs">Reviews</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {TEAM_MEMBERS.map((name) => {
+                  const row = heatmap[name];
+                  if (!row) return null;
+                  const totalReviews = Math.max(
+                    ...RUBRIC_CATEGORIES.map((c) => row[c].count)
+                  );
+                  return (
+                    <tr key={name} className="border-b border-[var(--card-border)] last:border-0">
+                      <td className="py-2 px-2 font-semibold">
+                        <Link href={`/reps/${encodeURIComponent(name.toLowerCase().replace(/[^a-z]/g, "_"))}`} className="text-[var(--primary)] hover:underline">
+                          {name}
+                        </Link>
+                      </td>
+                      {RUBRIC_CATEGORIES.map((cat) => {
+                        const cell = row[cat];
+                        return (
+                          <td key={cat} className="py-2 px-2 text-center">
+                            <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${heatmapColor(cell.count >= 3 ? cell.avg : null)}`}>
+                              {cell.count >= 3 ? cell.avg!.toFixed(1) : cell.count > 0 ? `${cell.avg!.toFixed(1)}*` : "—"}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="py-2 px-2 text-center text-xs text-[var(--muted)]">
+                        {totalReviews > 0 ? totalReviews : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="mt-3 flex gap-4 text-xs text-[var(--muted)]">
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-emerald-100"></span> Strong (4.0+)</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-yellow-100"></span> Developing (3.0–3.9)</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-red-100"></span> Intervention (&lt;3.0)</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-100"></span> Insufficient data</span>
+              <span>* = fewer than 3 reviews</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Section 1: Open Commitments */}
       <div className="mb-8">
