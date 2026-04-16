@@ -6,7 +6,8 @@ export default function HistoryPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-[var(--primary)]">Manual Input</h1>
         <p className="text-[var(--muted)] mt-1">
-          Add historical calls retroactively. Enter the date, outcome, and details for any past call.
+          Add monthly performance data. Enter the month, revenue, calls occurred, and enrollments.
+          Metrics like DM rate, webinar rate, and PCC rate are derived automatically.
         </p>
       </div>
       <HistoricalCallForm />

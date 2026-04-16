@@ -12,6 +12,8 @@ const EMPTY_CALL: CallDetail = {
   outcome: "won",
   pcced: false,
   notes: "",
+  win_on_call: "",
+  lose_on_call: "",
 };
 
 export default function EditShiftForm() {
@@ -25,18 +27,24 @@ export default function EditShiftForm() {
   const [error, setError] = useState("");
 
   const [shiftDate, setShiftDate] = useState("");
+  const [preRevenueGoal, setPreRevenueGoal] = useState("");
+  const [preEnrollmentsGoal, setPreEnrollmentsGoal] = useState("");
+  const [preCallsGoal, setPreCallsGoal] = useState("");
   const [revenueCollected, setRevenueCollected] = useState("");
-  const [enrollments, setEnrollments] = useState("");
   const [callsInSchedule, setCallsInSchedule] = useState("");
+  const [pccedInSchedule, setPccedInSchedule] = useState("");
+  const [pccAttempts, setPccAttempts] = useState("");
   const [noShows, setNoShows] = useState("");
   const [reschedules, setReschedules] = useState("");
   const [cancellations, setCancellations] = useState("");
+  const [rescheduleNames, setRescheduleNames] = useState("");
   const [wonCalls, setWonCalls] = useState("");
   const [lost, setLost] = useState("");
   const [followUps, setFollowUps] = useState("");
   const [callDetails, setCallDetails] = useState<CallDetail[]>([]);
   const [winNotes, setWinNotes] = useState("");
   const [lossNotes, setLossNotes] = useState("");
+  const [timeReflection, setTimeReflection] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -51,18 +59,24 @@ export default function EditShiftForm() {
       if (data) {
         const entry = data as ShiftEntry;
         setShiftDate(entry.shift_date || "");
+        setPreRevenueGoal(String(entry.pre_shift_revenue_goal || 0));
+        setPreEnrollmentsGoal(String(entry.pre_shift_enrollments_goal || 0));
+        setPreCallsGoal(String(entry.pre_shift_calls_goal || 0));
         setRevenueCollected(String(entry.revenue_collected || 0));
-        setEnrollments(String(entry.enrollments || 0));
         setCallsInSchedule(String(entry.calls_in_schedule));
+        setPccedInSchedule(String(entry.pcced_calls || 0));
+        setPccAttempts(String(entry.pcc_attempts || 0));
         setNoShows(String(entry.no_shows));
         setReschedules(String(entry.reschedules));
         setCancellations(String(entry.cancellations));
+        setRescheduleNames(entry.reschedule_names || "");
         setWonCalls(String(entry.won));
         setLost(String(entry.lost));
         setFollowUps(String(entry.follow_ups));
         setCallDetails(entry.call_details || []);
         setWinNotes(entry.win_notes || "");
         setLossNotes(entry.loss_notes || "");
+        setTimeReflection(entry.time_reflection || "");
       }
       setLoading(false);
     }
@@ -80,7 +94,6 @@ export default function EditShiftForm() {
   const followUpNum = parseInt(followUps) || 0;
   const dmCalls = callDetails.filter((c) => c.decision_maker_present).length;
   const webinarCalls = callDetails.filter((c) => c.webinar_watched).length;
-  const pccedCalls = callDetails.filter((c) => c.pcced).length;
 
   function adjustCallDetails(newCount: number) {
     setCallDetails((prev) => {
@@ -110,7 +123,7 @@ export default function EditShiftForm() {
       .update({
         shift_date: shiftDate,
         revenue_collected: parseInt(revenueCollected) || 0,
-        enrollments: parseInt(enrollments) || 0,
+        enrollments: wonNum,
         calls_in_schedule: scheduleNum,
         calls_occurred: callsOccurred,
         won: wonNum,
@@ -121,10 +134,16 @@ export default function EditShiftForm() {
         cancellations: cancelNum,
         decision_maker_calls: dmCalls,
         webinar_watched_calls: webinarCalls,
-        pcced_calls: pccedCalls,
+        pcced_calls: parseInt(pccedInSchedule) || 0,
         call_details: callDetails,
         win_notes: winNotes,
         loss_notes: lossNotes,
+        reschedule_names: rescheduleNames,
+        time_reflection: timeReflection,
+        pre_shift_revenue_goal: parseInt(preRevenueGoal) || 0,
+        pre_shift_enrollments_goal: parseInt(preEnrollmentsGoal) || 0,
+        pre_shift_calls_goal: parseInt(preCallsGoal) || 0,
+        pcc_attempts: parseInt(pccAttempts) || 0,
       })
       .eq("id", shiftId);
 
@@ -157,32 +176,62 @@ export default function EditShiftForm() {
         />
       </div>
 
-      {/* Revenue + Enrollments */}
+      {/* Pre-Shift Goals */}
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
-        <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Shift Data</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <h2 className="text-lg font-bold text-[var(--primary)] mb-1">Pre-Shift Goals</h2>
+        <p className="text-sm text-[var(--muted)] mb-4">Targets set before the shift.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-semibold mb-1.5">Revenue Collected ($)</label>
-            <input type="number" value={revenueCollected} onChange={(e) => setRevenueCollected(e.target.value)}
+            <label className="block text-sm font-semibold mb-1.5">Revenue Goal ($)</label>
+            <input type="number" value={preRevenueGoal} onChange={(e) => setPreRevenueGoal(e.target.value)}
               className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-1.5">Enrollments</label>
-            <input type="number" value={enrollments} onChange={(e) => setEnrollments(e.target.value)}
+            <label className="block text-sm font-semibold mb-1.5">Enrollments Goal</label>
+            <input type="number" value={preEnrollmentsGoal} onChange={(e) => setPreEnrollmentsGoal(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5">Calls Goal</label>
+            <input type="number" value={preCallsGoal} onChange={(e) => setPreCallsGoal(e.target.value)}
               className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
           </div>
         </div>
+      </div>
 
-        {/* Calls in Schedule */}
+      {/* Revenue */}
+      <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
+        <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Shift Data</h2>
         <div className="mb-6">
-          <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
-          <input type="number" value={callsInSchedule}
-            onChange={(e) => {
-              setCallsInSchedule(e.target.value);
-              const newOccurred = Math.max(0, (parseInt(e.target.value) || 0) - nonOccurred);
-              adjustCallDetails(newOccurred);
-            }}
-            className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          <label className="block text-sm font-semibold mb-1.5">Revenue Collected ($)</label>
+          <input type="number" value={revenueCollected} onChange={(e) => setRevenueCollected(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+        </div>
+
+        {/* Calls in Schedule + PCCd + PCC Attempts */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">Calls in Schedule</label>
+            <input type="number" value={callsInSchedule}
+              onChange={(e) => {
+                setCallsInSchedule(e.target.value);
+                const newOccurred = Math.max(0, (parseInt(e.target.value) || 0) - nonOccurred);
+                adjustCallDetails(newOccurred);
+              }}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">PCCd Calls in Schedule</label>
+            <input type="number" value={pccedInSchedule}
+              onChange={(e) => setPccedInSchedule(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} max={scheduleNum} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1.5 text-lg">PCC Attempts</label>
+            <input type="number" value={pccAttempts}
+              onChange={(e) => setPccAttempts(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-[var(--primary)] rounded-lg bg-[var(--primary-bg)] text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" placeholder="0" min={0} />
+          </div>
         </div>
 
         {/* Non-Occurred */}
@@ -248,7 +297,8 @@ export default function EditShiftForm() {
                   <th className="text-center py-2 px-2 font-semibold">DM?</th>
                   <th className="text-left py-2 px-2 font-semibold">Outcome</th>
                   <th className="text-center py-2 px-2 font-semibold">PCCed?</th>
-                  <th className="text-left py-2 px-2 font-semibold">Notes</th>
+                  <th className="text-left py-2 px-2 font-semibold">Win on Call</th>
+                  <th className="text-left py-2 px-2 font-semibold">Lose on Call</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,8 +327,12 @@ export default function EditShiftForm() {
                       <input type="checkbox" checked={call.pcced} onChange={(e) => updateCallDetail(i, "pcced", e.target.checked)} className="w-4 h-4 accent-[var(--primary)]" />
                     </td>
                     <td className="py-2 px-2">
-                      <input type="text" value={call.notes} onChange={(e) => updateCallDetail(i, "notes", e.target.value)}
-                        className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]" placeholder="Notes" />
+                      <input type="text" value={call.win_on_call || ""} onChange={(e) => updateCallDetail(i, "win_on_call", e.target.value)}
+                        className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]" placeholder="What worked" />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input type="text" value={call.lose_on_call || ""} onChange={(e) => updateCallDetail(i, "lose_on_call", e.target.value)}
+                        className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded bg-[var(--input-bg)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]" placeholder="What to improve" />
                     </td>
                   </tr>
                 ))}
@@ -288,15 +342,24 @@ export default function EditShiftForm() {
           <div className="mt-3 flex gap-4 text-sm text-[var(--muted)]">
             <span>DM: <strong className="text-[var(--primary)]">{dmCalls}/{callsOccurred}</strong></span>
             <span>Webinar: <strong className="text-[var(--primary)]">{webinarCalls}/{callsOccurred}</strong></span>
-            <span>PCCed: <strong className="text-[var(--primary)]">{pccedCalls}/{callsOccurred}</strong></span>
+            <span>PCCd: <strong className="text-[var(--primary)]">{parseInt(pccedInSchedule) || 0}/{scheduleNum}</strong> ({scheduleNum > 0 ? (((parseInt(pccedInSchedule) || 0) / scheduleNum) * 100).toFixed(0) : 0}%)</span>
           </div>
+        </div>
+      )}
+
+      {/* Reschedule Names */}
+      {rescheduleNum > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
+          <h2 className="text-lg font-bold text-[var(--warning)] mb-2">Rescheduled Calls ({rescheduleNum})</h2>
+          <textarea value={rescheduleNames} onChange={(e) => setRescheduleNames(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none" rows={3} placeholder="Names of people who rescheduled" />
         </div>
       )}
 
       {/* Notes */}
       <div className="bg-white rounded-xl border border-[var(--card-border)] p-6">
         <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Shift Reflection</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-semibold mb-1.5">Win Notes</label>
             <textarea value={winNotes} onChange={(e) => setWinNotes(e.target.value)}
@@ -307,6 +370,11 @@ export default function EditShiftForm() {
             <textarea value={lossNotes} onChange={(e) => setLossNotes(e.target.value)}
               className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none" rows={3} placeholder="What could be improved?" />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-1.5">How could I have used my time better?</label>
+          <textarea value={timeReflection} onChange={(e) => setTimeReflection(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none" rows={3} placeholder="Reflect on time management..." />
         </div>
       </div>
 

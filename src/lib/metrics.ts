@@ -120,27 +120,18 @@ export function filterEntriesByDate(
   if (filter === 'all') return entries;
 
   const now = new Date();
-  let cutoff: Date;
 
-  switch (filter) {
-    case 'week':
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      break;
-    case '3months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      break;
-    case '6months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-      break;
-    case 'year':
-      cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      break;
-    default:
-      return entries;
+  // Handle specific month filter like "2025-11"
+  if (/^\d{4}-\d{2}$/.test(filter)) {
+    const [year, month] = filter.split('-').map(Number);
+    return entries.filter((e) => {
+      const d = new Date(e.shift_date || e.created_at || '');
+      return d.getFullYear() === year && d.getMonth() === month - 1;
+    });
   }
+
+  const cutoff = getDateCutoff(now, filter);
+  if (!cutoff) return entries;
 
   return entries.filter((e) => {
     const entryDate = new Date(e.shift_date || e.created_at || '');
@@ -155,51 +146,62 @@ export function filterHistoricalByDate(
   if (filter === 'all') return calls;
 
   const now = new Date();
-  let cutoff: Date;
+
+  // Handle specific month filter like "2025-11"
+  if (/^\d{4}-\d{2}$/.test(filter)) {
+    const [year, month] = filter.split('-').map(Number);
+    return calls.filter((c) => {
+      const d = new Date(c.call_date);
+      return d.getFullYear() === year && d.getMonth() === month - 1;
+    });
+  }
+
+  const cutoff = getDateCutoff(now, filter);
+  if (!cutoff) return calls;
+
+  return calls.filter((c) => new Date(c.call_date) >= cutoff);
+}
+
+function getDateCutoff(now: Date, filter: string): Date | null {
+  // Handle "Nmonths" pattern (2months, 3months, ..., 11months)
+  const monthMatch = filter.match(/^(\d+)months$/);
+  if (monthMatch) {
+    const n = parseInt(monthMatch[1]);
+    return new Date(now.getFullYear(), now.getMonth() - n, now.getDate());
+  }
 
   switch (filter) {
     case 'week':
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     case 'month':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      break;
-    case '3months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      break;
-    case '6months':
-      cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-      break;
+      return new Date(now.getFullYear(), now.getMonth(), 1);
     case 'year':
-      cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      break;
+      return new Date(now.getFullYear(), now.getMonth() - 12, now.getDate());
     default:
-      return calls;
+      return null;
   }
-
-  return calls.filter((c) => new Date(c.call_date) >= cutoff);
 }
 
 export function generateInsights(metrics: Metrics, cumulative: CumulativeStats): Insight[] {
   const insights: Insight[] = [];
 
-  if (metrics.close_rate < 0.3) {
-    insights.push({ flag: 'Focus on closing on-call', severity: 'critical' });
+  if (metrics.close_rate < 0.2) {
+    insights.push({ flag: 'Close rate below 20% on calls — review discovery and closing mechanics', severity: 'critical' });
   }
-  if (metrics.show_rate < 0.7) {
-    insights.push({ flag: 'Improve reminders / lead prep', severity: 'critical' });
+  if (metrics.show_rate < 0.55) {
+    insights.push({ flag: 'Show rate below 55% — tighten booking confirmations and PCC outreach', severity: 'critical' });
   }
-  if (metrics.decision_maker_rate < 0.9) {
-    insights.push({ flag: 'Always involve decision makers', severity: 'warning' });
+  if (metrics.decision_maker_rate < 0.7) {
+    insights.push({ flag: 'Less than 70% of calls have DM present — confirm DM attendance at booking', severity: 'warning' });
   }
-  if (metrics.webinar_rate < 0.8) {
-    insights.push({ flag: 'Ensure prospects watch webinar', severity: 'warning' });
+  if (metrics.webinar_rate < 0.7) {
+    insights.push({ flag: 'Less than 70% of prospects watched the webinar — make it a booking prerequisite', severity: 'warning' });
   }
-  if (metrics.follow_up_rate > 0.5) {
-    insights.push({ flag: 'High follow-up ratio — push for on-call decisions', severity: 'warning' });
+  if (metrics.follow_up_rate > 0.4) {
+    insights.push({ flag: 'Over 40% of calls defer to follow-up — push harder for on-call decisions', severity: 'warning' });
   }
   if (metrics.non_occurred_rate > 0.3) {
-    insights.push({ flag: 'High non-occurred rate — review scheduling process', severity: 'warning' });
+    insights.push({ flag: 'Over 30% of scheduled calls didn\u2019t occur — review booking quality', severity: 'warning' });
   }
 
   // Webinar/DM effect insights
@@ -241,27 +243,30 @@ export function generateInsights(metrics: Metrics, cumulative: CumulativeStats):
   return insights;
 }
 
-export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], cumulative: CumulativeStats): AIInsight {
+export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], cumulative: CumulativeStats, pccScheduledRate?: number): AIInsight {
   const problems: string[] = [];
   const actions: string[] = [];
+  const positives: string[] = [];
 
   const callsWithoutDM = callDetails.filter(c => !c.decision_maker_present);
   const callsWithoutWebinar = callDetails.filter(c => !c.webinar_watched);
   const followUpCalls = callDetails.filter(c => c.outcome === 'follow_up');
-  const pccedCalls = callDetails.filter(c => c.pcced);
 
-  if (metrics.close_rate < 0.3) {
-    problems.push('Your close rate is below 30%');
+  if (metrics.close_rate < 0.2) {
+    problems.push('Your call close rate is below 20%');
     actions.push('Focus on closing during the call — avoid deferring to follow-ups');
   }
 
-  if (metrics.show_rate < 0.7) {
-    problems.push('More than 30% of scheduled calls are not occurring');
+  if (metrics.show_rate < 0.55) {
+    problems.push('Show rate below 55% — nearly half your booked calls aren\u2019t happening');
     actions.push('Send confirmation messages 24h and 1h before each call');
     actions.push('Increase perceived value in booking confirmations');
   }
 
-  if (metrics.decision_maker_rate < 0.9) {
+  // 0 calls without DM = good
+  if (callsWithoutDM.length === 0 && callDetails.length > 0) {
+    positives.push('All calls had a decision maker present — excellent!');
+  } else if (metrics.decision_maker_rate < 0.9) {
     problems.push(`${callsWithoutDM.length} call(s) had no decision maker present`);
     actions.push('Confirm decision maker attendance during scheduling');
     const names = callsWithoutDM.map(c => c.contact_name).filter(Boolean);
@@ -270,7 +275,10 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
     }
   }
 
-  if (metrics.webinar_rate < 0.8) {
+  // 0 calls without webinar = good
+  if (callsWithoutWebinar.length === 0 && callDetails.length > 0) {
+    positives.push('All prospects watched the webinar — great prep!');
+  } else if (metrics.webinar_rate < 0.8) {
     problems.push(`${callsWithoutWebinar.length} call(s) had prospects who didn't watch the webinar`);
     actions.push('Make webinar completion a prerequisite before booking');
   }
@@ -280,9 +288,12 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
     actions.push('Push urgency harder — ask "What happens if you don\'t act on this now?"');
   }
 
-  if (pccedCalls.length > 0) {
-    problems.push(`${pccedCalls.length} call(s) were PCCed`);
-    actions.push('Review PCC patterns — are they happening with specific lead types?');
+  // Flag if <60% of scheduled calls are PCCd
+  if (pccScheduledRate !== undefined && pccScheduledRate < 0.6) {
+    problems.push(`Only ${(pccScheduledRate * 100).toFixed(0)}% of scheduled calls are PCCd (target: 60%+)`);
+    actions.push('Increase PCC completion — call every scheduled prospect before their appointment');
+  } else if (pccScheduledRate !== undefined && pccScheduledRate >= 0.6) {
+    positives.push(`${(pccScheduledRate * 100).toFixed(0)}% of scheduled calls are PCCd — solid outreach!`);
   }
 
   // Cumulative insights
@@ -291,17 +302,23 @@ export function generateAIInsight(metrics: Metrics, callDetails: CallDetail[], c
   }
 
   if (problems.length === 0) {
+    const goodActions = positives.length > 0 ? positives : ['Maintain your current approach'];
+    goodActions.push('Look for ways to increase deal size');
+    goodActions.push('Coach teammates on what\'s working');
     return {
       diagnosis: 'Strong performance across the board',
       explanation: 'Your metrics are healthy. Keep executing your current process consistently.',
-      actions: ['Maintain your current approach', 'Look for ways to increase deal size', 'Coach teammates on what\'s working'],
+      actions: goodActions.slice(0, 5),
     };
   }
 
   const diagnosis = problems.length === 1 ? problems[0] : `${problems.length} areas need attention`;
   const explanation = problems.join('. ') + '.';
 
-  return { diagnosis, explanation, actions: actions.slice(0, 5) };
+  // Mix positives into actions
+  const allActions = [...positives.map(p => `✓ ${p}`), ...actions];
+
+  return { diagnosis, explanation, actions: allActions.slice(0, 6) };
 }
 
 export function calculateLeaderboard(entries: ShiftEntry[]): LeaderboardEntry[] {

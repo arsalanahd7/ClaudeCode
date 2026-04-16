@@ -5,76 +5,43 @@ export interface ImportedDeal {
   contact_name: string;
   close_date: string;
   deal_stage: string;
-  outcome: 'won' | 'lost' | 'excluded';
+  outcome: 'won' | 'lost';
   amount: number;
-  excluded: boolean; // true if non-occur, appointment, or webinar engagement
-  raw_stage: string; // original stage name from CSV
+  raw_stage: string;
 }
 
 export interface ImportStats {
   total_rows: number;
-  total_deals: number; // won + lost (actionable)
+  total_deals: number;
   total_won: number;
   total_lost: number;
-  total_excluded: number;
   total_revenue: number;
-  close_rate_all: number; // won / (won + lost + excluded)
-  close_rate_actionable: number; // won / (won + lost) — excludes non-occur/appointment/webinar
+  close_rate: number;
 }
 
-// Stages to exclude from actionable close rate
-export const EXCLUDED_STAGES = [
-  'appointment scheduled',
-  'appointment',
-  'non-occur',
-  'non occur',
-  'no show',
-  'no-show',
-  'cancelled',
-  'canceled',
-  'rescheduled',
-  'webinar engagement',
-  'webinar',
-];
-
-export function isExcludedStage(stage: string): boolean {
-  const normalized = stage.toLowerCase().trim();
-  return EXCLUDED_STAGES.some(
-    (s) => normalized.includes(s) || s.includes(normalized)
-  );
-}
-
-export function mapDealStage(stage: string): 'won' | 'lost' | 'excluded' {
+export function mapDealStage(stage: string): 'won' | 'lost' {
   const normalized = stage.toLowerCase().trim();
   if (normalized.includes('closed won') || normalized === 'won') return 'won';
-  if (normalized.includes('closed lost') || normalized === 'lost') return 'lost';
-  if (isExcludedStage(normalized)) return 'excluded';
-  // Default: treat unknown stages as lost (they had a call but didn't close)
+  // Everything else is a loss
   return 'lost';
 }
 
 export function calculateImportStats(deals: ImportedDeal[]): ImportStats {
   const won = deals.filter((d) => d.outcome === 'won');
   const lost = deals.filter((d) => d.outcome === 'lost');
-  const excluded = deals.filter((d) => d.outcome === 'excluded');
 
   const totalWon = won.length;
   const totalLost = lost.length;
-  const totalExcluded = excluded.length;
   const totalRevenue = won.reduce((sum, d) => sum + d.amount, 0);
-
-  const allTotal = totalWon + totalLost + totalExcluded;
-  const actionableTotal = totalWon + totalLost;
+  const total = totalWon + totalLost;
 
   return {
     total_rows: deals.length,
-    total_deals: actionableTotal,
+    total_deals: total,
     total_won: totalWon,
     total_lost: totalLost,
-    total_excluded: totalExcluded,
     total_revenue: totalRevenue,
-    close_rate_all: allTotal > 0 ? totalWon / allTotal : 0,
-    close_rate_actionable: actionableTotal > 0 ? totalWon / actionableTotal : 0,
+    close_rate: total > 0 ? totalWon / total : 0,
   };
 }
 
@@ -101,7 +68,6 @@ export function filterDealsByDate(deals: ImportedDeal[], filter: string): Import
       cutoff = new Date(now.getFullYear(), 0, 1);
       break;
     default: {
-      // Check for specific month format: "2025-04"
       if (/^\d{4}-\d{2}$/.test(filter)) {
         const [year, month] = filter.split('-').map(Number);
         const start = new Date(year, month - 1, 1);
